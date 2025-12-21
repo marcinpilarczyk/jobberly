@@ -48,7 +48,7 @@ with st.sidebar:
     st.divider()
     st.subheader("💳 Support the Protocol")
     st.markdown("[Pay What You Can (Lemon Squeezy)](#)")
-    st.caption("Jobberly v2.3.0 (Decision Maker Identification)")
+    st.caption("Jobberly v2.4.0 (1st Person Outreach)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -96,7 +96,7 @@ with tab_onboard:
         st.info("Vault Analysis (Problem-Solver Profile):")
         st.write(st.session_state['career_vault'])
         
-        chat_input = st.chat_input("Tell the Advocate about a major win at work...")
+        chat_input = st.chat_input("Tell the Advocate about a major win at your last job...")
         if chat_input:
             with st.chat_message("assistant"):
                 try:
@@ -142,7 +142,7 @@ with tab_scout:
                     
                     if "**Company Name**:" in res.text:
                         st.session_state['detected_company'] = res.text.split("**Company Name**:")[1].strip().split("\n")[0]
-                        st.session_state['potential_managers'] = [] # Reset managers for new company
+                        st.session_state['potential_managers'] = []
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
         else:
@@ -170,24 +170,21 @@ with tab_intel:
                     res = client.models.generate_content(model=selected_model, contents=intel_prompt)
                     st.markdown(f"### 🧠 {comp_name} Intelligence Map")
                     st.write(res.text)
-                    st.session_state['detected_company'] = comp_name # Ensure consistency
+                    st.session_state['detected_company'] = comp_name
                 except Exception as e:
                     st.error(f"Research Error: {e}")
 
-# --- Tab 4: Outreach Architect (Name Identification & Grounded Notes) ---
+# --- Tab 4: Outreach Architect (1st Person Grounded Notes) ---
 with tab_outreach:
     st.header("LinkedIn Outreach Architect")
-    st.write("Identify decision-makers by name and craft grounded, tactical messages.")
+    st.write("Identify decision-makers and craft grounded, personal messages.")
     
-    # 1. Pre-populated Company
     outreach_comp = st.text_input("Target Company:", value=st.session_state['detected_company'])
     
-    # 2. Name Identification Logic
     if st.button("Identify Potential Hiring Managers by Name"):
         if outreach_comp:
             with st.spinner(f"Searching organizational artifacts for {outreach_comp}..."):
                 try:
-                    # AI mimics search of LinkedIn metadata/public archives to find likely names
                     manager_prompt = f"""
                     Identify 2 potential hiring managers at {outreach_comp} by NAME and TITLE.
                     Use common naming patterns for high-profile leaders in this sector or simulate 
@@ -203,32 +200,31 @@ with tab_outreach:
     selected_target = st.selectbox("Select Outreach Target:", 
                                    options=st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform identification first)"])
     
-    # 3. Grounded Note Generation
     if st.button("Generate Grounded Outreach Note"):
         if selected_target and "|" in selected_target:
-            with st.spinner("Synthesizing Vault data with company pain points..."):
+            with st.spinner("Synthesizing personal wins with company pain points..."):
                 try:
-                    # STRICT GROUNDING: Note MUST use Vault data and identified pain points
                     name, title = selected_target.split("|")
                     outreach_prompt = f"""
-                    You are the Jobberly Advocate. Write a 300-char LinkedIn note to {name.strip()} ({title.strip()}).
+                    Write a 300-char LinkedIn note FROM THE CANDIDATE'S PERSPECTIVE (1st person) to {name.strip()} ({title.strip()}).
                     
-                    ### GROUNDING DATA (CANDIDATE VAULT):
+                    ### CANDIDATE VAULT (YOUR VERIFIED HISTORY):
                     {st.session_state['career_vault']}
                     
                     ### TARGET COMPANY: {outreach_comp}
                     
                     ### INSTRUCTIONS:
-                    1. Use the candidate's ACTUAL wins and skills from the Vault.
-                    2. Map these specifically to a likely 'bleeding neck' pain point for {outreach_comp}.
-                    3. DO NOT HALLUCINATE experience or skills not found in the Vault.
-                    4. Focus on being a 'Problem Solver' rather than a 'Job Seeker'.
-                    5. Keep it under 300 characters for a LinkedIn invite.
+                    1. Use "I" and "my" to build a direct, personal connection.
+                    2. Use the candidate's ACTUAL wins (e.g., cutting onboarding, leading engineers) from the Vault.
+                    3. Map these to a likely friction point for {outreach_comp}.
+                    4. DO NOT HALLUCINATE. Only use skills and experience found in the Vault.
+                    5. Format it as a high-intent invitation to solve a problem.
+                    6. Keep it under 300 characters for a LinkedIn invite.
                     """
                     res = client.models.generate_content(model=selected_model, contents=outreach_prompt)
-                    st.markdown(f"### 📧 Connection Note for {name.strip()}")
+                    st.markdown(f"### 📧 Personal Note for {name.strip()}")
                     st.code(res.text, language="markdown")
-                    st.caption("Grounded in your verified professional history.")
+                    st.caption("Written in 1st person to build a direct connection.")
                 except Exception as e:
                     st.error(f"Outreach Error: {e}")
         else:
