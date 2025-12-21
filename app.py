@@ -16,8 +16,8 @@ except Exception:
 # 3. Session State Initialization
 if 'career_vault' not in st.session_state:
     st.session_state['career_vault'] = None
-if 'target_company' not in st.session_state:
-    st.session_state['target_company'] = ""
+if 'detected_company' not in st.session_state:
+    st.session_state['detected_company'] = ""
 
 # 4. Sidebar: Identity, Metrics, and Support
 with st.sidebar:
@@ -46,7 +46,7 @@ with st.sidebar:
     st.divider()
     st.subheader("💳 Support the Protocol")
     st.markdown("[Pay What You Can (Lemon Squeezy)](#)")
-    st.caption("Jobberly v2.0.0 (Strategic Control)")
+    st.caption("Jobberly v2.1.0 (Forensic Standard)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -72,6 +72,7 @@ with tab_onboard:
                 reader = pypdf.PdfReader(uploaded_file)
                 full_text = "".join([page.extract_text() for page in reader.pages])
                 
+                # Context-aware parsing
                 prompt = f"""
                 You are a Career Data Architect. Parse this LinkedIn profile.
                 IDENTIFY: 
@@ -111,47 +112,44 @@ with tab_onboard:
 # --- Tab 2: Command Center (Forensic Trust Report) ---
 with tab_scout:
     st.header("The Deception Decoder")
-    st.write("Generate a Forensic Trust Report based on the Jobberly Protocol.")
+    st.write("Forensic analysis of job listings to identify intent, trust, and risk.")
     
     jd_text = st.text_area("Paste a Job Description (JD):", height=200)
-    # Pre-populate company name if found in JD (Simplified extraction)
-    
     if st.button("Generate Trust Report"):
         if jd_text:
-            with st.spinner(f"Executing Forensic Protocol with {selected_model}..."):
+            with st.spinner(f"Decoding Forensic DNA with {selected_model}..."):
                 try:
                     scout_prompt = f"""
-                    Analyze this Job Description using the Jobberly Analysis Protocol.
+                    Analyze this Job Description using the Jobberly Protocol. 
                     
-                    ### CANDIDATE CONTEXT (From Vault):
-                    {st.session_state['career_vault'] if st.session_state['career_vault'] else "No vault data available."}
-
-                    ### 1. INTERNAL-HIRE / COMPLIANCE DETECTION:
-                    - Scan for Regulatory Boilerplate: 'Notice of Filing,' 'Prevailing Wage,' or 'Labor Certification'.
-                    - Analyze Specificity: Check for 'kitchen sink' hyper-specific conjunctions (AND statements) designed to exclude others.
-                    - Check for Lack of 'Selling' Language: Is it clinical and devoid of culture/benefits?
-
-                    ### 2. GHOSTING & DATA HARVESTING RISK:
-                    - Scan for Evergreen Language: Vague titles or phrases implying a 'continuous pipeline'.
-                    - Check for Reposting Artifacts: Flag dates that are months old or 'rolling' intake language.
-                    - Reputation Check: Factor in general responsive employer trends.
-
-                    ### 3. SCAM & ECONOMIC ANOMALY DETECTION:
-                    - Wage-to-Value Ratio: Compare Salary vs Title/Requirements. Identify Scam Risk (High pay/Low skill) or Title Deflation (Low pay/High skill).
-                    - Scan for Urgency & Payment Signals: Flag 'Immediate Start,' 'Wire Transfer,' or non-corporate emails.
-
-                    ### 4. BUDGET PREDICTION:
-                    - Research local market for this role/location.
-                    - Factor in candidate seniority and skills from the Vault.
-
+                    ### ANALYSIS PROTOCOLS:
+                    1. INTERNAL-HIRE/COMPLIANCE DETECTION:
+                       - Scan for Regulatory Boilerplate: 'Notice of Filing,' 'Prevailing Wage,' or 'Labor Certification'.
+                       - Analyze Specificity: Identify 'kitchen sink' hyper-specific conjunctions (AND statements).
+                       - Check for Lack of 'Selling' Language: Is it devoid of culture/benefits/persuasion?
+                    
+                    2. GHOSTING & DATA HARVESTING RISK:
+                       - Scan for Evergreen Language: Vague titles or pipeline phrases.
+                       - Check for Reposting Artifacts: Flag old dates or 'rolling' intake language.
+                       - Trust Indicators: Check for 'Paid Promotion' and 'Named Manager'.
+                    
+                    3. SCAM & ECONOMIC ANOMALY DETECTION:
+                       - Wage-to-Value Ratio: Compare Salary vs Requirements. Detect Scam Risk or Title Deflation.
+                       - Scan for Urgency & Payment Signals: Flag 'Immediate Start,' 'Wire Transfer,' or non-corporate emails.
+                    
+                    4. BUDGET PREDICTION:
+                       - Research local market for this role and location.
+                       - Factor in candidate context: {st.session_state['career_vault'] if st.session_state['career_vault'] else "No vault data."}
+                    
                     ### OUTPUT FORMAT (MANDATORY):
-                    - **Overall Trust Score**: (0-100) - Color code: 0-30 :red[], 31-60 :orange[], 61-100 :green[]
-                    - **Red Flags**: (Bullet points of specific suspicious phrases found)
+                    Use color coding: Red (Bad), Orange (Medium), Green (Good).
+                    - **Overall Trust Score**: (0-100)
+                    - **Red Flags**: (Bullet points of specific suspicious phrases)
                     - **Likelihood of Internal Pre-Selection**: (Low/Medium/High) + Explanation.
                     - **Ghosting Probability**: (Low/Medium/High) + Explanation.
-                    - **Budget Prediction**: (Forensic Estimate based on seniority + market)
+                    - **Budget Prediction**: (Forensic estimate factoring seniority/market)
                     - **Worth Applying?**: (Yes/Proceed with Caution/Avoid)
-                    - **Company Detected**: Provide the company name found in the JD.
+                    - **Company Name**: (Identify the company name)
 
                     DO NOT HALLUCINATE.
 
@@ -159,49 +157,45 @@ with tab_scout:
                     """
                     res = client.models.generate_content(model=selected_model, contents=scout_prompt)
                     st.markdown("---")
+                    st.markdown("### 🕵️ Forensic Trust Report")
                     st.markdown(res.text)
                     
-                    # Capture company name for Intel tab
-                    if "Company Detected:" in res.text:
-                        st.session_state['target_company'] = res.text.split("Company Detected:")[1].strip().split("\n")[0]
+                    # Store company name for Intel tab
+                    if "**Company Name**:" in res.text:
+                        st.session_state['detected_company'] = res.text.split("**Company Name**:")[1].strip().split("\n")[0]
                 except Exception as e:
-                    st.error(f"Protocol Execution Error: {e}")
+                    st.error(f"Analysis Error: {e}")
         else:
             st.warning("Please paste a job description first.")
 
-# --- Tab 3: Strategic Intel (Enhanced Control Questions) ---
+# --- Tab 3: Strategic Intel (Enhanced Control) ---
 with tab_intel:
     st.header("Strategic Intelligence")
-    st.write("Research the company's competitive 'bleeding neck' pain points and prepare to lead.")
+    st.write("Deep research to help you control the interview and demonstrate expertise.")
     
-    # Pre-populated from Scout tab
-    comp_name = st.text_input("Target Company Name:", value=st.session_state['target_company'])
-    
-    if st.button("Generate Strategy Map"):
+    comp_name = st.text_input("Target Company Name:", value=st.session_state['detected_company'])
+    if st.button("Generate Strategic Intel"):
         if comp_name:
-            with st.spinner(f"Building Intelligence Map..."):
+            with st.spinner(f"Building Intelligence Map for {comp_name}..."):
                 try:
                     intel_prompt = f"""
-                    Research {comp_name} to empower a candidate to control the interview. 
-                    Provide:
-                    1. **Company Stage & Lifecycle Analysis**: Current funding, market position, and growth trajectory.
-                    2. [cite_start]**'Bleeding Neck' Pain Points**: Identify 3 competitive or operational friction points currently facing the organization[cite: 173].
+                    Research {comp_name} to empower the candidate.
+                    1. **Company Stage & Lifecycle Analysis**: Funding, market position, and growth trajectory.
+                    2. **'Bleeding Neck' Pain Points**: Identify 3 competitive or operational friction points.
                     3. **Strategic 'Cheat Sheet' for Applying**:
-                       - [cite_start]The Core Bridge: Framing candidate experience against these pain points[cite: 134].
-                       - Highlight the Friction: Key achievement to mention that solves their specific issue.
-                       - [cite_start]The X-Factor: Standing out from 'Purple Squirrel' hunts[cite: 191].
-                    4. **Strategic Control Questions (Candidate to Ask)**:
-                       - Create a set of 5 deep-dive questions the candidate can ask during the interview.
-                       - These questions MUST demonstrate a forensic understanding of the identified pain points.
-                       - [cite_start]Goal: Shift the candidate from a 'seeker' to a 'consultant' who understands their bleeding neck[cite: 250].
+                       - The Core Bridge: Framing candidate experience against pain points.
+                       - Highlight the Friction: Key achievement to mention.
+                       - The X-Factor: Standing out from 'Purple Squirrel' hunts.
+                    4. **Strategic Control Questions (To ask on Interview)**:
+                       - A set of 5 questions the candidate can ask to show they understand the pain points and control the conversation.
                     
-                    Candidate Context from Vault: {st.session_state['career_vault']}
+                    Candidate context: {st.session_state['career_vault']}
                     """
                     res = client.models.generate_content(model=selected_model, contents=intel_prompt)
-                    st.markdown(f"### 🧬 {comp_name} Intelligence Map")
+                    st.markdown(f"### 🧠 {comp_name} Intelligence Map")
                     st.write(res.text)
                 except Exception as e:
-                    st.error(f"Intel Error: {e}")
+                    st.error(f"Research Error: {e}")
 
 # --- Tab 4: Outreach Architect ---
 with tab_outreach:
@@ -210,7 +204,7 @@ with tab_outreach:
     if st.button("Generate Note"):
         if role:
             try:
-                [cite_start]outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {comp_name} solving a specific corporate friction point[cite: 140]."
+                outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {st.session_state['detected_company']} solving a friction point."
                 res = client.models.generate_content(model=selected_model, contents=outreach_prompt)
                 st.code(res.text, language="markdown")
             except Exception as e:
@@ -219,7 +213,7 @@ with tab_outreach:
 # --- Tab 5: Market Tracking ---
 with tab_track:
     st.header("Accountability Ledger")
-    [cite_start]st.write("Track status and enforce the 'Feedback Escrow'[cite: 66].")
+    st.write("Track status and enforce the 'Feedback Escrow'.")
     tracking_data = pd.DataFrame({
         "Company": ["GlobalCorp", "TechStart"],
         "Status": ["Interview Scheduled", "Ghosted (Claim Filed)"],
