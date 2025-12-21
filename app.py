@@ -6,32 +6,44 @@ import pandas as pd
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration
+# 2. API Configuration (Using Streamlit Secrets)
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
     st.error("Missing GEMINI_API_KEY. Please add it to your Streamlit Secrets.")
     st.stop()
 
-# 3. Session State
+# 3. Session State Initialization
 if 'career_vault' not in st.session_state:
     st.session_state['career_vault'] = None
 
-# 4. Sidebar: Identity & Identity Protocol
+# 4. Sidebar: Identity, Metrics, and Model Selection
 with st.sidebar:
     st.title("🛡️ Jobberly")
     st.markdown("**The Candidate-Centric Employment Protocol**")
-    st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
+    
     st.divider()
     
+    # NEW: Model Selection Dropdown
+    st.subheader("🤖 AI Settings")
+    selected_model = st.selectbox(
+        "Select Model Tier:",
+        ["gemini-3-flash-preview", "gemini-3-pro-preview"],
+        index=0,
+        help="Choose the model used for discovery, analysis, and outreach."
+    )
+    
+    st.divider()
+    
+    # Career Vault Status
     if st.session_state['career_vault']:
         st.status("Career Vault: Verified & Populated", state="complete")
     else:
         st.status("Career Vault: Awaiting Import", state="error")
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
-    st.divider()
-    st.caption("Jobberly v1.3.0 (Unrestricted)")
+    st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
+    st.caption("Jobberly v1.4.0 (Model Selection)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -52,13 +64,11 @@ with tab_onboard:
     uploaded_file = st.file_uploader("Upload LinkedIn PDF", type="pdf")
     
     if uploaded_file and not st.session_state['career_vault']:
-        with st.spinner("AI Agent analyzing full professional history..."):
+        with st.spinner(f"Analyzing history with {selected_model}..."):
             try:
                 reader = pypdf.PdfReader(uploaded_file)
-                # Now capturing the ENTIRE document text
                 full_text = "".join([page.extract_text() for page in reader.pages])
                 
-                # High-fidelity prompt for 'Problem-Solver' mapping
                 prompt = f"""
                 You are a Career Data Architect. Parse this FULL LinkedIn professional history 
                 into a structured summary. Identify:
@@ -69,11 +79,12 @@ with tab_onboard:
                 
                 TEXT: {full_text} 
                 """
-                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+                # Using dynamically selected model
+                response = client.models.generate_content(model=selected_model, contents=prompt)
                 st.session_state['career_vault'] = response.text
                 st.success("Vault Seeded with Full Profile Data!")
             except Exception as e:
-                st.error(f"Error: {e}")
+                st.error(f"Error seeding vault: {e}")
 
     if st.session_state['career_vault']:
         st.divider()
@@ -85,20 +96,20 @@ with tab_onboard:
         if chat_input:
             with st.chat_message("assistant"):
                 try:
-                    # Using the full vault context for better questions
                     interview_prompt = (
                         f"Context: {st.session_state['career_vault']}. "
                         f"The candidate claims: '{chat_input}'. "
                         "Ask a probing, evidence-based question to uncover deep achievements "
                         "or impact on company metrics that were not explicitly in the PDF."
                     )
-                    res = client.models.generate_content(model="gemini-2.0-flash", contents=interview_prompt)
+                    # Using dynamically selected model
+                    res = client.models.generate_content(model=selected_model, contents=interview_prompt)
                     st.write(res.text)
-                    st.caption("Captured and saved to Local Career Vault.")
+                    st.caption(f"Interviewing with {selected_model}")
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# --- Tab 2: Command Center (Full Context Scout) ---
+# --- Tab 2: Command Center (Scout Decoder) ---
 with tab_scout:
     st.header("The Deception Decoder")
     st.write("Analyze listings for 'Ghost Jobs' and 'Internal-Hire Theater.'")
@@ -106,25 +117,29 @@ with tab_scout:
     jd_text = st.text_area("Paste a Job Description (JD):", height=200)
     if st.button("Analyze Listing"):
         if jd_text:
-            with st.spinner("Decoding corporate-speak..."):
+            with st.spinner(f"Analyzing with {selected_model}..."):
                 try:
-                    # Now allowing more text for JD analysis
                     scout_prompt = f"Analyze this JD for: 1. Ghost Score, 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text}"
-                    res = client.models.generate_content(model="gemini-2.0-flash", contents=scout_prompt)
+                    # Using dynamically selected model
+                    res = client.models.generate_content(model=selected_model, contents=scout_prompt)
                     st.markdown("### 📊 Scout Report")
                     st.write(res.text)
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
+        else:
+            st.warning("Please paste a job description first.")
 
 # --- Tab 3: Strategic Intel (Company Archeology) ---
 with tab_intel:
     st.header("Company Archeology")
+    st.write("Research 'bleeding neck' pain points before you apply.")
     comp_name = st.text_input("Target Company Name:")
     if st.button("Generate Strategic Intel"):
-        with st.spinner(f"Researching {comp_name}..."):
+        with st.spinner(f"Researching with {selected_model}..."):
             try:
                 intel_prompt = f"Research {comp_name}. Identify: 1. Stage Pain Points, 2. A 3-Minute Interview Script."
-                res = client.models.generate_content(model="gemini-2.0-flash", contents=intel_prompt)
+                # Using dynamically selected model
+                res = client.models.generate_content(model=selected_model, contents=intel_prompt)
                 st.write(res.text)
             except Exception as e:
                 st.error(f"Research Error: {e}")
@@ -132,22 +147,31 @@ with tab_intel:
 # --- Tab 4: Outreach Architect ---
 with tab_outreach:
     st.header("LinkedIn Connection Architect")
+    st.write("Bypass the ATS with direct, tactical connection sequences.")
     role = st.text_input("Decision Maker Title:")
     if st.button("Draft Tactical Note"):
         if role:
             try:
                 outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {comp_name}. Focus on solving a problem."
-                res = client.models.generate_content(model="gemini-2.0-flash", contents=outreach_prompt)
+                # Using dynamically selected model
+                res = client.models.generate_content(model=selected_model, contents=outreach_prompt)
                 st.code(res.text, language="markdown")
             except Exception as e:
                 st.error(f"Drafting Error: {e}")
+        else:
+            st.warning("Please specify a role.")
 
 # --- Tab 5: Market Tracking ---
 with tab_track:
     st.header("Accountability Ledger")
+    st.write("Track status and enforce the 'Feedback Escrow'.")
     tracking_data = pd.DataFrame({
         "Company": ["GlobalCorp", "TechStart"],
         "Status": ["Interview Scheduled", "Ghosted (Claim Pending)"],
         "Escrow Status": ["Locked", "Transferred to Seeker ($50)"]
     })
     st.table(tracking_data)
+    
+    st.divider()
+    st.button("Activate 'Be Discovered' Mode (Reverse Auction)")
+    st.caption("Verified anonymous profiles visible to employers for bidding.")
