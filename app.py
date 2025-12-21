@@ -31,7 +31,7 @@ with st.sidebar:
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.divider()
-    st.caption("Jobberly v1.1.0 (2025)")
+    st.caption("Jobberly v1.2.0 (2025)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -53,19 +53,25 @@ with tab_onboard:
     
     if uploaded_file and not st.session_state['career_vault']:
         with st.spinner("AI Agent parsing your professional history..."):
-            # Extract text from uploaded PDF
-            reader = pypdf.PdfReader(uploaded_file)
-            raw_text = "".join([page.extract_text() for page in reader.pages])
-            
-            # Use Gemini to structure the data for the Vault
-            prompt = f"""
-            You are a Career Data Architect. Parse this LinkedIn PDF into a structured summary 
-            focusing on roles, key achievements, and skills. 
-            TEXT: {raw_text[:5000]} 
-            """
-            response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-            st.session_state['career_vault'] = response.text
-            st.success("Vault Seeded successfully!")
+            try:
+                # Extract text from uploaded PDF
+                reader = pypdf.PdfReader(uploaded_file)
+                raw_text = "".join([page.extract_text() for page in reader.pages])
+                
+                # Truncate text to avoid ClientError/Token limits
+                clean_text = raw_text[:10000]
+                
+                # Use Gemini to structure the data for the Vault
+                prompt = f"""
+                You are a Career Data Architect. Parse this LinkedIn professional history 
+                into a structured summary focusing on roles, key achievements, and core skills. 
+                TEXT: {clean_text} 
+                """
+                response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+                st.session_state['career_vault'] = response.text
+                st.success("Vault Seeded successfully!")
+            except Exception as e:
+                st.error(f"Failed to parse PDF. The file might be too large or complex. Error: {e}")
 
     if st.session_state['career_vault']:
         st.divider()
@@ -76,15 +82,18 @@ with tab_onboard:
         chat_input = st.chat_input("Tell the Advocate about a major win at work...")
         if chat_input:
             with st.chat_message("assistant"):
-                # The interview is now context-aware based on the uploaded profile
-                interview_prompt = (
-                    f"Based on this profile: {st.session_state['career_vault']}, "
-                    f"ask one probing, evidence-based question about the user's claim: '{chat_input}'. "
-                    "Focus on uncovering impact metrics like revenue or operational burn rate."
-                )
-                res = client.models.generate_content(model="gemini-2.0-flash", contents=interview_prompt)
-                st.write(res.text)
-                st.caption("Captured and saved to Local Career Vault.")
+                try:
+                    # The interview is now context-aware based on the uploaded profile
+                    interview_prompt = (
+                        f"Based on this profile: {st.session_state['career_vault']}, "
+                        f"ask one probing, evidence-based question about the user's claim: '{chat_input}'. "
+                        "Focus on uncovering impact metrics like revenue or operational burn rate."
+                    )
+                    res = client.models.generate_content(model="gemini-2.0-flash", contents=interview_prompt)
+                    st.write(res.text)
+                    st.caption("Captured and saved to Local Career Vault.")
+                except Exception as e:
+                    st.error("AI was unable to process your request. Please try again with a shorter claim.")
 
 # --- Tab 2: Command Center (Scout Decoder) ---
 with tab_scout:
@@ -95,10 +104,13 @@ with tab_scout:
     if st.button("Analyze Listing"):
         if jd_text:
             with st.spinner("Calculating Ghost Score..."):
-                scout_prompt = f"Analyze this JD for: 1. Ghost Score (0-100), 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text}"
-                res = client.models.generate_content(model="gemini-2.0-flash", contents=scout_prompt)
-                st.markdown("### 📊 Scout Report")
-                st.write(res.text)
+                try:
+                    scout_prompt = f"Analyze this JD for: 1. Ghost Score (0-100), 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text[:5000]}"
+                    res = client.models.generate_content(model="gemini-2.0-flash", contents=scout_prompt)
+                    st.markdown("### 📊 Scout Report")
+                    st.write(res.text)
+                except Exception as e:
+                    st.error("Unable to analyze this JD. Please ensure the text is not too long.")
         else:
             st.warning("Please paste a job description first.")
 
@@ -110,10 +122,13 @@ with tab_intel:
     comp_name = st.text_input("Target Company Name:")
     if st.button("Generate Strategic Intel"):
         with st.spinner(f"Researching {comp_name}..."):
-            intel_prompt = f"Research {comp_name}. Identify: 1. Current Stage Pain Points, 2. A 3-Minute Interview Script."
-            res = client.models.generate_content(model="gemini-2.0-flash", contents=intel_prompt)
-            st.markdown(f"### 🧠 {comp_name} Strategy Map")
-            st.write(res.text)
+            try:
+                intel_prompt = f"Research {comp_name}. Identify: 1. Current Stage Pain Points, 2. A 3-Minute Interview Script."
+                res = client.models.generate_content(model="gemini-2.0-flash", contents=intel_prompt)
+                st.markdown(f"### 🧠 {comp_name} Strategy Map")
+                st.write(res.text)
+            except Exception:
+                st.error("Research agent busy. Please try again.")
 
 # --- Tab 4: Outreach Architect ---
 with tab_outreach:
@@ -123,10 +138,13 @@ with tab_outreach:
     role = st.text_input("Decision Maker Title (e.g., VP of Engineering):")
     if st.button("Draft Tactical Note"):
         if role:
-            outreach_prompt = f"Write a 300-char LinkedIn note to a {role}. Focus on solving a specific problem."
-            res = client.models.generate_content(model="gemini-2.0-flash", contents=outreach_prompt)
-            st.markdown("### 📧 Connection Pitch")
-            st.code(res.text, language="markdown")
+            try:
+                outreach_prompt = f"Write a 300-char LinkedIn note to a {role}. Focus on solving a specific problem."
+                res = client.models.generate_content(model="gemini-2.0-flash", contents=outreach_prompt)
+                st.markdown("### 📧 Connection Pitch")
+                st.code(res.text, language="markdown")
+            except Exception:
+                st.error("Agent failed to draft note.")
         else:
             st.warning("Please specify a role.")
 
