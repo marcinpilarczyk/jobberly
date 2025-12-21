@@ -6,14 +6,14 @@ import pandas as pd
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration
+# 2. API Configuration (Using Streamlit Secrets)
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
     st.error("Missing GEMINI_API_KEY. Please add it to your Streamlit Secrets.")
     st.stop()
 
-# 3. Session State Initialization (Persistence & Cross-Tab Intelligence)
+# 3. Session State Initialization
 if 'career_vault' not in st.session_state:
     st.session_state['career_vault'] = None
 if 'detected_company' not in st.session_state:
@@ -40,18 +40,18 @@ with st.sidebar:
     st.divider()
     
     if st.session_state['career_vault']:
-        st.status("Career Vault: Active", state="complete")
+        st.status("Career Vault: Active & Grounded", state="complete")
         if st.button("🔄 Reset Vault"):
             st.session_state['career_vault'] = None
             st.rerun()
     else:
-        st.status("Vault: Awaiting Seed", state="error")
+        st.status("Vault: Awaiting Initial Seed", state="error")
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.divider()
     st.subheader("💳 Support")
     st.markdown("[Pay What You Can (Lemon Squeezy)](#)")
-    st.caption("Jobberly v3.1.0 (Integrated Forensics)")
+    st.caption("Jobberly v3.2.0 (Full Document Generation)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -137,32 +137,42 @@ with tabs[3]:
             res = client.models.generate_content(model=selected_model, contents=out_prompt)
             st.code(res.text, language="markdown")
 
-# --- Tab 5: Application Builder (Integrated & Copy-Paste) ---
+# --- Tab 5: Application Builder (Full Resume & Plain Text Cover Letter) ---
 with tabs[4]:
     st.header("📝 Application Builder")
     if not st.session_state['career_vault'] or not st.session_state['last_jd_analyzed']:
         st.warning("⚠️ Complete 'Discovery Engine' and 'Command Center' first.")
     else:
         st.info(f"Target: **{st.session_state['detected_company']}**")
-        if st.button("Generate Copy-Paste Application"):
-            with st.spinner("Executing Strategic Overfitting..."):
+        if st.button("Generate Full Copy-Paste Application"):
+            with st.spinner("Executing Strategic Overfitting & Bridging..."):
                 builder_prompt = f"""
-                You are a Jobberly Application Architect. Generate a copy-paste resume and cover letter.
+                You are a Jobberly Application Architect. Generate a full, copy-paste ready Resume and a Plain-Text Cover Letter.
                 
                 ### DATA SOURCES:
-                - CANDIDATE VAULT (Verified Wins): {st.session_state['career_vault']}
-                - TARGET JD (Forensic DNA): {st.session_state['last_jd_analyzed']}
-                - STRATEGIC INTEL (Pain Points): {st.session_state['strategic_intel']}
+                - CANDIDATE VAULT (Verified Professional Identity): {st.session_state['career_vault']}
+                - TARGET JOB DESCRIPTION (Forensic Requirements): {st.session_state['last_jd_analyzed']}
+                - STRATEGIC INTEL (Company 'Bleeding Neck'): {st.session_state['strategic_intel']}
                 
-                ### INSTRUCTIONS:
-                1. Use 'Strategic Overfitting'[cite: 52]: Mirror the JD's semantic and syntactic complexity to ensure alignment.
-                2. Position as a 'Problem-Solver'[cite: 10]: Bridge vault achievements directly to the company's 'bleeding neck' pain points.
-                3. First-Person POV: Use 'I' and 'my' to build human connection.
-                4. Formatting: Use clear Markdown headers.
+                ### INSTRUCTIONS FOR RESUME:
+                1. Provide a FULL resume structure suitable for Word/Google Docs.
+                2. Include: Contact Info placeholder, 'Problem-Solver' Professional Summary, Core Competencies (mirrored from JD), Professional Experience (grounded in Vault wins), and Education.
+                3. Use 'Strategic Overfitting': Align the syntactic complexity and skill conjunctions with the JD to bypass the '75% Wall'.
+                4. Use clear headers and Markdown formatting for the Resume section.
                 
-                ### OUTPUT:
-                - **RESUME HIGHLIGHTS**: (Summary + 5 forensic bullet points)
-                - **STRATEGIC COVER LETTER**: (Grounded in pain points and verified wins)
+                ### INSTRUCTIONS FOR COVER LETTER:
+                1. Write a high-intent, 1st-person cover letter.
+                2. IMPORTANT: Output as PLAIN TEXT only. NO bolding, NO italics, NO bullet points.
+                3. Start by addressing the company's specific pain points identified in Strategic Intel.
+                4. Bridge the candidate's specific Vault achievements as the direct solution to those points.
+                5. Use 'I' and 'my' to ensure a personal, non-clinical tone.
+                
+                ### OUTPUT FORMAT:
+                --- FULL TAILORED RESUME ---
+                [Full formatted content here]
+                
+                --- PLAIN TEXT COVER LETTER ---
+                [Unformatted text here]
                 """
                 res = client.models.generate_content(model=selected_model, contents=builder_prompt)
                 st.markdown("---")
@@ -171,4 +181,4 @@ with tabs[4]:
 # --- Tab 6: Market Tracking ---
 with tabs[5]:
     st.header("Accountability Ledger")
-    st.table(pd.DataFrame({"Company": ["GlobalCorp"], "Status": ["Interview"], "Escrow": ["Locked"]}))
+    st.table(pd.DataFrame({"Company": [st.session_state['detected_company'] if st.session_state['detected_company'] else "GlobalCorp"], "Status": ["In Progress"], "Escrow": ["Active"]}))
