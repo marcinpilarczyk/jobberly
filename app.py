@@ -6,7 +6,7 @@ import pandas as pd
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration (Using Streamlit Secrets)
+# 2. API Configuration
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
@@ -24,18 +24,16 @@ with st.sidebar:
     
     st.divider()
     
-    # NEW: Model Selection Dropdown
     st.subheader("🤖 AI Settings")
     selected_model = st.selectbox(
         "Select Model Tier:",
-        ["gemini-3-flash-preview", "gemini-3-pro-preview"],
+        ["gemini-2.0-flash", "gemini-2.0-pro-exp-02-05"], # Updated to current 2025 naming
         index=0,
         help="Choose the model used for discovery, analysis, and outreach."
     )
     
     st.divider()
     
-    # Career Vault Status
     if st.session_state['career_vault']:
         st.status("Career Vault: Verified & Populated", state="complete")
     else:
@@ -43,7 +41,7 @@ with st.sidebar:
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
-    st.caption("Jobberly v1.4.0 (Model Selection)")
+    st.caption("Jobberly v1.5.0 (Standardized Scout)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -56,7 +54,7 @@ tab_onboard, tab_scout, tab_intel, tab_outreach, tab_track = st.tabs([
     "📊 Market Tracking"
 ])
 
-# --- Tab 1: Discovery Engine (High-Fidelity Import) ---
+# --- Tab 1: Discovery Engine ---
 with tab_onboard:
     st.header("1. Build Your Proof-Based Vault")
     st.write("LinkedIn -> More... -> Save to PDF. Upload it below to seed your vault.")
@@ -70,7 +68,7 @@ with tab_onboard:
                 full_text = "".join([page.extract_text() for page in reader.pages])
                 
                 prompt = f"""
-                You are a Career Data Architect. Parse this FULL LinkedIn professional history 
+                You are a Career Data Architect. Parse this FULL LinkedIn history 
                 into a structured summary. Identify:
                 1. Roles and responsibilities.
                 2. Quantifiable achievements and metrics.
@@ -79,7 +77,6 @@ with tab_onboard:
                 
                 TEXT: {full_text} 
                 """
-                # Using dynamically selected model
                 response = client.models.generate_content(model=selected_model, contents=prompt)
                 st.session_state['career_vault'] = response.text
                 st.success("Vault Seeded with Full Profile Data!")
@@ -100,16 +97,15 @@ with tab_onboard:
                         f"Context: {st.session_state['career_vault']}. "
                         f"The candidate claims: '{chat_input}'. "
                         "Ask a probing, evidence-based question to uncover deep achievements "
-                        "or impact on company metrics that were not explicitly in the PDF."
+                        "or impact on metrics (burn rate, revenue) not explicitly in the PDF."
                     )
-                    # Using dynamically selected model
                     res = client.models.generate_content(model=selected_model, contents=interview_prompt)
                     st.write(res.text)
                     st.caption(f"Interviewing with {selected_model}")
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# --- Tab 2: Command Center (Scout Decoder) ---
+# --- Tab 2: Command Center (Standardized Scout) ---
 with tab_scout:
     st.header("The Deception Decoder")
     st.write("Analyze listings for 'Ghost Jobs' and 'Internal-Hire Theater.'")
@@ -117,19 +113,42 @@ with tab_scout:
     jd_text = st.text_area("Paste a Job Description (JD):", height=200)
     if st.button("Analyze Listing"):
         if jd_text:
-            with st.spinner(f"Analyzing with {selected_model}..."):
+            with st.spinner(f"Generating High-Fidelity Scout Report with {selected_model}..."):
                 try:
-                    scout_prompt = f"Analyze this JD for: 1. Ghost Score, 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text}"
-                    # Using dynamically selected model
+                    # PRESCRIPTIVE PROMPT for consistent formatting
+                    scout_prompt = f"""
+                    Analyze this Job Description (JD) using the Jobberly Protocol. 
+                    Your output MUST follow this exact structure:
+
+                    ### 1. Ghost Score: [X]/100 ([Interpretation: e.g., Highly Likely to be Real])
+                    A "Ghost Job" is a posting with no intent to hire. Provide:
+                    * Bullet points explaining the score (e.g., specific language, company momentum, posting age).
+
+                    ### 2. Internal-Hire Signals: [X]/100 ([Risk Level])
+                    Identify if this is "Compliance Theater" for a pre-selected internal candidate. Provide:
+                    * Bullet points identifying "hand-crafted" requirements or "bridge role" characteristics.
+
+                    ### 3. Budget Prediction
+                    Predict the hiring budget based on company stage, funding, and title deflation patterns. Provide:
+                    * **Estimated Base Salary**: [Range]
+                    * **Total Compensation Insights**: [Equity, perks, or comparison to market].
+
+                    ### Strategic "Cheat Sheet" for Applying:
+                    1. **The Core Bridge**: How to frame your experience for this specific role.
+                    2. **Highlight the Friction**: Specific phrase or achievement to include.
+                    3. **The X-Factor**: What will make you stand out from the "Purple Squirrel" hunt.
+
+                    JD TEXT: {jd_text}
+                    """
                     res = client.models.generate_content(model=selected_model, contents=scout_prompt)
-                    st.markdown("### 📊 Scout Report")
-                    st.write(res.text)
+                    st.markdown("---")
+                    st.markdown(res.text)
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
         else:
             st.warning("Please paste a job description first.")
 
-# --- Tab 3: Strategic Intel (Company Archeology) ---
+# --- Tab 3: Strategic Intel ---
 with tab_intel:
     st.header("Company Archeology")
     st.write("Research 'bleeding neck' pain points before you apply.")
@@ -138,7 +157,6 @@ with tab_intel:
         with st.spinner(f"Researching with {selected_model}..."):
             try:
                 intel_prompt = f"Research {comp_name}. Identify: 1. Stage Pain Points, 2. A 3-Minute Interview Script."
-                # Using dynamically selected model
                 res = client.models.generate_content(model=selected_model, contents=intel_prompt)
                 st.write(res.text)
             except Exception as e:
@@ -153,13 +171,10 @@ with tab_outreach:
         if role:
             try:
                 outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {comp_name}. Focus on solving a problem."
-                # Using dynamically selected model
                 res = client.models.generate_content(model=selected_model, contents=outreach_prompt)
                 st.code(res.text, language="markdown")
             except Exception as e:
                 st.error(f"Drafting Error: {e}")
-        else:
-            st.warning("Please specify a role.")
 
 # --- Tab 5: Market Tracking ---
 with tab_track:
