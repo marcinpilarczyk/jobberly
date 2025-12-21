@@ -6,7 +6,7 @@ import pandas as pd
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration (Using Streamlit Secrets)
+# 2. API Configuration
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
@@ -24,6 +24,11 @@ if 'strategic_intel' not in st.session_state:
     st.session_state['strategic_intel'] = ""
 if 'potential_managers' not in st.session_state:
     st.session_state['potential_managers'] = []
+# New states for editable application docs
+if 'generated_resume' not in st.session_state:
+    st.session_state['generated_resume'] = ""
+if 'generated_cover_letter' not in st.session_state:
+    st.session_state['generated_cover_letter'] = ""
 
 # 4. Sidebar: Identity & Metrics
 with st.sidebar:
@@ -40,22 +45,20 @@ with st.sidebar:
     st.divider()
     
     if st.session_state['career_vault']:
-        st.status("Career Vault: Active & Grounded", state="complete")
+        st.status("Career Vault: Active & Verified", state="complete")
         if st.button("🔄 Reset Vault"):
             st.session_state['career_vault'] = None
             st.rerun()
     else:
-        st.status("Vault: Awaiting Initial Seed", state="error")
+        st.status("Vault: Awaiting Seed", state="error")
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.divider()
     st.subheader("💳 Support")
     st.markdown("[Pay What You Can (Lemon Squeezy)](#)")
-    st.caption("Jobberly v3.2.0 (Full Document Generation)")
+    st.caption("Jobberly v3.3.0 (Grounded & Editable)")
 
 # 5. Main Application Interface
-st.title("🛡️ Jobseeker Advocate Suite")
-
 tabs = st.tabs([
     "🚀 Discovery Engine", 
     "🕵️ Command Center", 
@@ -72,11 +75,11 @@ with tabs[0]:
     uploaded_file = st.file_uploader(label, type="pdf")
     
     if uploaded_file:
-        with st.spinner("Processing professional DNA..."):
+        with st.spinner("Synchronizing professional identity..."):
             try:
                 reader = pypdf.PdfReader(uploaded_file)
                 full_text = "".join([page.extract_text() for page in reader.pages])
-                prompt = f"Parse this profile into a structured 'Problem-Solver' summary (Seniority, Skills, Wins, Achievements). TEXT: {full_text}"
+                prompt = f"Parse this profile into a structured 'Problem-Solver' summary focusing on Seniority, Skills, and specific Metric-based Wins. TEXT: {full_text}"
                 response = client.models.generate_content(model=selected_model, contents=prompt)
                 st.session_state['career_vault'] = response.text
                 st.success("Vault Synchronized.")
@@ -126,59 +129,76 @@ with tabs[3]:
     outreach_comp = st.text_input("Target Company:", value=st.session_state['detected_company'], key="out_comp")
     if st.button("Identify Decision Makers"):
         if outreach_comp:
-            res = client.models.generate_content(model=selected_model, contents=f"Identify 2 managers at {outreach_comp}. Format: Name | Title")
+            res = client.models.generate_content(model=selected_model, contents=f"Identify 2 likely managers at {outreach_comp}. Format: Name | Title")
             st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m]
     
     selected_target = st.selectbox("Select Target:", options=st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research)"])
     if st.button("Generate Note"):
         if selected_target and "|" in selected_target:
             name, title = selected_target.split("|")
-            out_prompt = f"1st-person note to {name.strip()} ({title.strip()}) at {outreach_comp}. Grounded in Vault: {st.session_state['career_vault']}. Max 300 chars."
+            out_prompt = f"Write a 1st-person note to {name.strip()} ({title.strip()}) at {outreach_comp}. Grounded ONLY in Vault: {st.session_state['career_vault']}. Max 300 chars."
             res = client.models.generate_content(model=selected_model, contents=out_prompt)
             st.code(res.text, language="markdown")
 
-# --- Tab 5: Application Builder (Full Resume & Plain Text Cover Letter) ---
+# --- Tab 5: Application Builder (Interactive & Grounded) ---
 with tabs[4]:
     st.header("📝 Application Builder")
     if not st.session_state['career_vault'] or not st.session_state['last_jd_analyzed']:
         st.warning("⚠️ Complete 'Discovery Engine' and 'Command Center' first.")
     else:
-        st.info(f"Target: **{st.session_state['detected_company']}**")
-        if st.button("Generate Full Copy-Paste Application"):
-            with st.spinner("Executing Strategic Overfitting & Bridging..."):
+        st.info(f"Targeting role at: **{st.session_state['detected_company']}**")
+        
+        if st.button("Generate Draft Application Documents"):
+            with st.spinner("Synthesizing forensic documents from vault..."):
                 builder_prompt = f"""
-                You are a Jobberly Application Architect. Generate a full, copy-paste ready Resume and a Plain-Text Cover Letter.
+                You are a Jobberly Application Architect. Generate a full Resume and a Plain-Text Cover Letter.
                 
                 ### DATA SOURCES:
-                - CANDIDATE VAULT (Verified Professional Identity): {st.session_state['career_vault']}
-                - TARGET JOB DESCRIPTION (Forensic Requirements): {st.session_state['last_jd_analyzed']}
-                - STRATEGIC INTEL (Company 'Bleeding Neck'): {st.session_state['strategic_intel']}
+                - CANDIDATE VAULT (Verified History): {st.session_state['career_vault']}
+                - TARGET JD (Forensic DNA): {st.session_state['last_jd_analyzed']}
+                - STRATEGIC INTEL (Bleeding Neck Pain Points): {st.session_state['strategic_intel']}
                 
-                ### INSTRUCTIONS FOR RESUME:
-                1. Provide a FULL resume structure suitable for Word/Google Docs.
-                2. Include: Contact Info placeholder, 'Problem-Solver' Professional Summary, Core Competencies (mirrored from JD), Professional Experience (grounded in Vault wins), and Education.
-                3. Use 'Strategic Overfitting': Align the syntactic complexity and skill conjunctions with the JD to bypass the '75% Wall'.
-                4. Use clear headers and Markdown formatting for the Resume section.
+                ### INSTRUCTIONS (STRICT GROUNDING - NO HALLUCINATIONS):
+                1. Only use skills, roles, and achievements found in the Vault.
+                2. If specific personal info (Phone, Email, Address) is missing, use placeholders like [PHONE NUMBER].
                 
-                ### INSTRUCTIONS FOR COVER LETTER:
-                1. Write a high-intent, 1st-person cover letter.
-                2. IMPORTANT: Output as PLAIN TEXT only. NO bolding, NO italics, NO bullet points.
-                3. Start by addressing the company's specific pain points identified in Strategic Intel.
-                4. Bridge the candidate's specific Vault achievements as the direct solution to those points.
-                5. Use 'I' and 'my' to ensure a personal, non-clinical tone.
+                ### RESUME REQUIREMENTS:
+                - Full structure for Word/GDocs. 
+                - Professional summary and bullet points re-engineered to bridge Vault wins to JD pain points.
+                - Use 'Strategic Overfitting' to match the JD's linguistic patterns.
                 
-                ### OUTPUT FORMAT:
-                --- FULL TAILORED RESUME ---
-                [Full formatted content here]
+                ### COVER LETTER REQUIREMENTS:
+                - Write a 1st-person, strategic letter.
+                - Address the 'Bleeding Neck' pain points from Strategic Intel immediately.
+                - OUTPUT AS PLAIN TEXT ONLY. No bolding, no italics, no bullet points.
                 
-                --- PLAIN TEXT COVER LETTER ---
-                [Unformatted text here]
+                ### OUTPUT SEPARATOR:
+                Use the token '|||' to separate the Resume from the Cover Letter.
                 """
                 res = client.models.generate_content(model=selected_model, contents=builder_prompt)
-                st.markdown("---")
-                st.markdown(res.text)
+                parts = res.text.split('|||')
+                st.session_state['generated_resume'] = parts[0].strip() if len(parts) > 0 else res.text
+                st.session_state['generated_cover_letter'] = parts[1].strip() if len(parts) > 1 else ""
+
+        # Editable Interface
+        if st.session_state['generated_resume']:
+            st.subheader("📄 Tailored Resume")
+            st.caption("Edit below to add final personal details like your phone number or address.")
+            edited_resume = st.text_area("Resume Content (Markdown/Rich Text)", 
+                                         value=st.session_state['generated_resume'], 
+                                         height=400)
+            
+            st.divider()
+            
+            st.subheader("📧 Strategic Cover Letter (Plain Text)")
+            st.caption("Forensically grounded in company pain points. No formatting to ensure human-to-human tone.")
+            edited_cl = st.text_area("Cover Letter Content (Plain Text)", 
+                                      value=st.session_state['generated_cover_letter'], 
+                                      height=300)
+            
+            st.success("Documents ready. Copy the text above directly into Word, Google Docs, or application portals.")
 
 # --- Tab 6: Market Tracking ---
 with tabs[5]:
     st.header("Accountability Ledger")
-    st.table(pd.DataFrame({"Company": [st.session_state['detected_company'] if st.session_state['detected_company'] else "GlobalCorp"], "Status": ["In Progress"], "Escrow": ["Active"]}))
+    st.table(pd.DataFrame({"Company": [st.session_state['detected_company'] if st.session_state['detected_company'] else "GlobalCorp"], "Status": ["Documents Ready"], "Escrow": ["Active"]}))
