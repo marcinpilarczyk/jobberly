@@ -25,7 +25,6 @@ with st.sidebar:
     st.divider()
     
     st.subheader("🤖 AI Settings")
-    # RESTORED: Gemini 3 Naming
     selected_model = st.selectbox(
         "Select Model Tier:",
         ["gemini-3-flash-preview", "gemini-3-pro-preview"],
@@ -38,11 +37,14 @@ with st.sidebar:
     if st.session_state['career_vault']:
         st.status("Career Vault: Verified & Populated", state="complete")
     else:
-        st.status("Career Vault: Awaiting Import", state="error")
+        st.status("Career Vault: Awaiting Data", state="error")
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
-    st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
-    st.caption("Jobberly v1.6.0 (Gemini 3 Core)")
+    
+    st.divider()
+    st.subheader("💳 Support the Protocol")
+    st.markdown("[Pay What You Can (Lemon Squeezy)](#)")
+    st.caption("Jobberly v1.7.0 (Forensic Intelligence)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -71,10 +73,10 @@ with tab_onboard:
                 prompt = f"""
                 You are a Career Data Architect. Parse this FULL LinkedIn history 
                 into a structured summary. Identify:
-                1. Roles and responsibilities.
+                1. Years of experience and seniority level.
                 2. Quantifiable achievements and metrics.
-                3. Core skills and endorsements.
-                4. Map these to potential corporate 'pain points' (e.g. burn rate, growth).
+                3. High-value skills and technical stack.
+                4. Map these to potential corporate 'pain points'.
                 
                 TEXT: {full_text} 
                 """
@@ -102,75 +104,87 @@ with tab_onboard:
                     )
                     res = client.models.generate_content(model=selected_model, contents=interview_prompt)
                     st.write(res.text)
-                    st.caption(f"Interviewing with {selected_model}")
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# --- Tab 2: Command Center ---
+# --- Tab 2: Command Center (Forensic Scout) ---
 with tab_scout:
     st.header("The Deception Decoder")
-    st.write("Analyze listings for 'Ghost Jobs' and 'Internal-Hire Theater.'")
+    st.write("Forensic analysis of job listings to identify intent and risk.")
     
     jd_text = st.text_area("Paste a Job Description (JD):", height=200)
     if st.button("Analyze Listing"):
         if jd_text:
-            with st.spinner(f"Generating Scout Report with {selected_model}..."):
+            with st.spinner(f"Decoding Forensic DNA with {selected_model}..."):
                 try:
+                    # Forensic prompt based on Job Ad Analysis research
                     scout_prompt = f"""
-                    Analyze this Job Description (JD) using the Jobberly Protocol. 
-                    Your output MUST follow this exact structure:
+                    You are the Jobberly Candidate Advocate. Analyze this Job Description (JD) using the following research-backed forensic markers.
+                    
+                    ### CANDIDATE CONTEXT (From Vault):
+                    {st.session_state['career_vault'] if st.session_state['career_vault'] else "No vault data. Use general market benchmarks."}
 
-                    ### 1. Ghost Score: [X]/100 ([Interpretation])
-                    A "Ghost Job" is a posting with no intent to hire. Provide:
-                    * Bullet points explaining the score.
+                    ### REQUIREMENTS FOR THE REPORT:
+                    1. **Ghost Score**: Calculate the probability this is a 'Phantom Vacancy'. Look for Reposting Cycles and Relative Vacancy Age (RVA)[cite: 81, 85].
+                    2. **Internal-Hire Signals**: Identify 'Compliance DNA'. Look for high-granularity skill conjunctions (AND statements) that perfectly match a pre-selected person[cite: 22, 38].
+                    3. **Trust Indicators**: Check for 'Active Promotion' and 'Named Managers' as positive signals.
+                    4. **Wage-to-Value Ratio**: Compare the offered salary against the complexity of requirements. Flag outliers where requirements are high but pay is low (Title Deflation) or vice-versa (Scam Risk)[cite: 123, 134].
+                    5. **Budget Prediction**: Research the local market for this role and location. Factor in the candidate's seniority and skills from the Vault.
+                    
+                    ### OUTPUT FORMAT:
+                    Use color-coded markdown for scores:
+                    - **0-30**: :green[Low Risk]
+                    - **31-60**: :orange[Moderate Risk]
+                    - **61-100**: :red[High Risk]
 
-                    ### 2. Internal-Hire Signals: [X]/100 ([Risk Level])
-                    Identify if this is "Compliance Theater." Provide:
-                    * Bullet points identifying "hand-crafted" requirements.
-
-                    ### 3. Budget Prediction
-                    Predict the hiring budget based on company stage and funding. Provide:
-                    * **Estimated Base Salary**: [Range]
-                    * **Total Compensation Insights**: [Equity, perks].
-
-                    ### Strategic "Cheat Sheet" for Applying:
-                    1. **The Core Bridge**: How to frame your experience.
-                    2. **Highlight the Friction**: Key achievement to include.
-                    3. **The X-Factor**: Stand out from the "Purple Squirrel" hunt.
+                    DO NOT HALLUCINATE. If data is missing (e.g. location or salary), provide a range based on detected markers and state the assumption.
 
                     JD TEXT: {jd_text}
                     """
                     res = client.models.generate_content(model=selected_model, contents=scout_prompt)
                     st.markdown("---")
+                    st.markdown("### 🕵️ Forensic Scout Report")
                     st.markdown(res.text)
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
         else:
             st.warning("Please paste a job description first.")
 
-# --- Tab 3: Strategic Intel ---
+# --- Tab 3: Strategic Intel (Enhanced Archeology) ---
 with tab_intel:
     st.header("Company Archeology")
-    st.write("Research 'bleeding neck' pain points before you apply.")
+    st.write("Deep research on company pain points and strategic alignment.")
     comp_name = st.text_input("Target Company Name:")
     if st.button("Generate Strategic Intel"):
-        with st.spinner(f"Researching with {selected_model}..."):
-            try:
-                intel_prompt = f"Research {comp_name}. Identify: 1. Stage Pain Points, 2. A 3-Minute Interview Script."
-                res = client.models.generate_content(model=selected_model, contents=intel_prompt)
-                st.write(res.text)
-            except Exception as e:
-                st.error(f"Research Error: {e}")
+        if comp_name:
+            with st.spinner(f"Researching {comp_name}..."):
+                try:
+                    intel_prompt = f"""
+                    Research {comp_name}.
+                    1. **Company Stage**: Analyze current product lifecycle and funding[cite: 75].
+                    2. **'Bleeding Neck' Pain Points**: Identify 3 competitive friction points.
+                    3. **The Strategic Cheat Sheet**: 
+                        - **The Core Bridge**: How to frame candidate experience.
+                        - **Highlight the Friction**: Key achievement to mention.
+                        - **The X-Factor**: How to stand out from 'Purple Squirrel' hunts[cite: 33].
+                    4. **3-Minute Interview Script**: Tailored to these pain points.
+                    
+                    Candidate context from Vault: {st.session_state['career_vault']}
+                    """
+                    res = client.models.generate_content(model=selected_model, contents=intel_prompt)
+                    st.markdown(f"### 🧠 {comp_name} Strategy Map")
+                    st.write(res.text)
+                except Exception as e:
+                    st.error(f"Research Error: {e}")
 
 # --- Tab 4: Outreach Architect ---
 with tab_outreach:
     st.header("LinkedIn Connection Architect")
-    st.write("Bypass the ATS with direct, tactical connection sequences.")
     role = st.text_input("Decision Maker Title:")
     if st.button("Draft Tactical Note"):
         if role:
             try:
-                outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {comp_name}. Focus on solving a problem."
+                outreach_prompt = f"Write a 300-char LinkedIn note to a {role}. Focus on solving a specific corporate friction point[cite: 10]."
                 res = client.models.generate_content(model=selected_model, contents=outreach_prompt)
                 st.code(res.text, language="markdown")
             except Exception as e:
@@ -179,14 +193,10 @@ with tab_outreach:
 # --- Tab 5: Market Tracking ---
 with tab_track:
     st.header("Accountability Ledger")
-    st.write("Track status and enforce the 'Feedback Escrow'.")
+    st.write("Track status and enforce the 'Feedback Escrow'[cite: 66].")
     tracking_data = pd.DataFrame({
         "Company": ["GlobalCorp", "TechStart"],
         "Status": ["Interview Scheduled", "Ghosted (Claim Pending)"],
         "Escrow Status": ["Locked", "Transferred to Seeker ($50)"]
     })
     st.table(tracking_data)
-    
-    st.divider()
-    st.button("Activate 'Be Discovered' Mode (Reverse Auction)")
-    st.caption("Verified anonymous profiles visible to employers for bidding.")
