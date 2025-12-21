@@ -25,11 +25,12 @@ with st.sidebar:
     st.divider()
     
     st.subheader("🤖 AI Settings")
+    # RESTORED: Gemini 3 Naming
     selected_model = st.selectbox(
         "Select Model Tier:",
-        ["gemini-2.0-flash", "gemini-2.0-pro-exp-02-05"], # Updated to current 2025 naming
+        ["gemini-3-flash-preview", "gemini-3-pro-preview"],
         index=0,
-        help="Choose the model used for discovery, analysis, and outreach."
+        help="Choose the next-generation model for discovery and analysis."
     )
     
     st.divider()
@@ -41,7 +42,7 @@ with st.sidebar:
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
-    st.caption("Jobberly v1.5.0 (Standardized Scout)")
+    st.caption("Jobberly v1.6.0 (Gemini 3 Core)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -105,7 +106,7 @@ with tab_onboard:
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-# --- Tab 2: Command Center (Standardized Scout) ---
+# --- Tab 2: Command Center ---
 with tab_scout:
     st.header("The Deception Decoder")
     st.write("Analyze listings for 'Ghost Jobs' and 'Internal-Hire Theater.'")
@@ -113,30 +114,29 @@ with tab_scout:
     jd_text = st.text_area("Paste a Job Description (JD):", height=200)
     if st.button("Analyze Listing"):
         if jd_text:
-            with st.spinner(f"Generating High-Fidelity Scout Report with {selected_model}..."):
+            with st.spinner(f"Generating Scout Report with {selected_model}..."):
                 try:
-                    # PRESCRIPTIVE PROMPT for consistent formatting
                     scout_prompt = f"""
                     Analyze this Job Description (JD) using the Jobberly Protocol. 
                     Your output MUST follow this exact structure:
 
-                    ### 1. Ghost Score: [X]/100 ([Interpretation: e.g., Highly Likely to be Real])
+                    ### 1. Ghost Score: [X]/100 ([Interpretation])
                     A "Ghost Job" is a posting with no intent to hire. Provide:
-                    * Bullet points explaining the score (e.g., specific language, company momentum, posting age).
+                    * Bullet points explaining the score.
 
                     ### 2. Internal-Hire Signals: [X]/100 ([Risk Level])
-                    Identify if this is "Compliance Theater" for a pre-selected internal candidate. Provide:
-                    * Bullet points identifying "hand-crafted" requirements or "bridge role" characteristics.
+                    Identify if this is "Compliance Theater." Provide:
+                    * Bullet points identifying "hand-crafted" requirements.
 
                     ### 3. Budget Prediction
-                    Predict the hiring budget based on company stage, funding, and title deflation patterns. Provide:
+                    Predict the hiring budget based on company stage and funding. Provide:
                     * **Estimated Base Salary**: [Range]
-                    * **Total Compensation Insights**: [Equity, perks, or comparison to market].
+                    * **Total Compensation Insights**: [Equity, perks].
 
                     ### Strategic "Cheat Sheet" for Applying:
-                    1. **The Core Bridge**: How to frame your experience for this specific role.
-                    2. **Highlight the Friction**: Specific phrase or achievement to include.
-                    3. **The X-Factor**: What will make you stand out from the "Purple Squirrel" hunt.
+                    1. **The Core Bridge**: How to frame your experience.
+                    2. **Highlight the Friction**: Key achievement to include.
+                    3. **The X-Factor**: Stand out from the "Purple Squirrel" hunt.
 
                     JD TEXT: {jd_text}
                     """
