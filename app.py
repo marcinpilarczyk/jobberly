@@ -6,14 +6,14 @@ import pandas as pd
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration (Using Streamlit Secrets)
+# 2. API Configuration
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
-    st.error("Missing GEMINI_API_KEY in Streamlit Secrets. Please add it to your dashboard.")
+    st.error("Missing GEMINI_API_KEY. Please add it to your Streamlit Secrets.")
     st.stop()
 
-# 3. Session State for the Career Vault
+# 3. Session State
 if 'career_vault' not in st.session_state:
     st.session_state['career_vault'] = None
 
@@ -21,17 +21,17 @@ if 'career_vault' not in st.session_state:
 with st.sidebar:
     st.title("🛡️ Jobberly")
     st.markdown("**The Candidate-Centric Employment Protocol**")
-    st.info("The protocol where the candidate is the protected asset, not the raw material.")
+    st.info("Jobberly is an 'Agent' that permissions data rather than owning it.")
     st.divider()
     
     if st.session_state['career_vault']:
-        st.status("Career Vault: Active & Seeded", state="complete")
+        st.status("Career Vault: Verified & Populated", state="complete")
     else:
-        st.status("Career Vault: Awaiting Data", state="error")
+        st.status("Career Vault: Awaiting Import", state="error")
     
     st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
     st.divider()
-    st.caption("Jobberly v1.2.0 (2025)")
+    st.caption("Jobberly v1.3.0 (Unrestricted)")
 
 # 5. Main Application Interface
 st.title("🛡️ Jobseeker Advocate Suite")
@@ -44,122 +44,110 @@ tab_onboard, tab_scout, tab_intel, tab_outreach, tab_track = st.tabs([
     "📊 Market Tracking"
 ])
 
-# --- Tab 1: Discovery Engine (Working PDF Importer) ---
+# --- Tab 1: Discovery Engine (High-Fidelity Import) ---
 with tab_onboard:
     st.header("1. Build Your Proof-Based Vault")
-    st.write("LinkedIn -> More... -> Save to PDF. Upload it below to 'seed' your vault.")
+    st.write("LinkedIn -> More... -> Save to PDF. Upload it below to seed your vault.")
     
     uploaded_file = st.file_uploader("Upload LinkedIn PDF", type="pdf")
     
     if uploaded_file and not st.session_state['career_vault']:
-        with st.spinner("AI Agent parsing your professional history..."):
+        with st.spinner("AI Agent analyzing full professional history..."):
             try:
-                # Extract text from uploaded PDF
                 reader = pypdf.PdfReader(uploaded_file)
-                raw_text = "".join([page.extract_text() for page in reader.pages])
+                # Now capturing the ENTIRE document text
+                full_text = "".join([page.extract_text() for page in reader.pages])
                 
-                # Truncate text to avoid ClientError/Token limits
-                clean_text = raw_text[:10000]
-                
-                # Use Gemini to structure the data for the Vault
+                # High-fidelity prompt for 'Problem-Solver' mapping
                 prompt = f"""
-                You are a Career Data Architect. Parse this LinkedIn professional history 
-                into a structured summary focusing on roles, key achievements, and core skills. 
-                TEXT: {clean_text} 
+                You are a Career Data Architect. Parse this FULL LinkedIn professional history 
+                into a structured summary. Identify:
+                1. Roles and responsibilities.
+                2. Quantifiable achievements and metrics.
+                3. Core skills and endorsements.
+                4. Map these to potential corporate 'pain points' (e.g. burn rate, growth).
+                
+                TEXT: {full_text} 
                 """
                 response = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
                 st.session_state['career_vault'] = response.text
-                st.success("Vault Seeded successfully!")
+                st.success("Vault Seeded with Full Profile Data!")
             except Exception as e:
-                st.error(f"Failed to parse PDF. The file might be too large or complex. Error: {e}")
+                st.error(f"Error: {e}")
 
     if st.session_state['career_vault']:
         st.divider()
         st.subheader("2. AI Interactive Interview")
-        st.info("Your AI-Structured Profile Summary:")
+        st.info("Vault Analysis (Problem-Solver Profile):")
         st.write(st.session_state['career_vault'])
         
         chat_input = st.chat_input("Tell the Advocate about a major win at work...")
         if chat_input:
             with st.chat_message("assistant"):
                 try:
-                    # The interview is now context-aware based on the uploaded profile
+                    # Using the full vault context for better questions
                     interview_prompt = (
-                        f"Based on this profile: {st.session_state['career_vault']}, "
-                        f"ask one probing, evidence-based question about the user's claim: '{chat_input}'. "
-                        "Focus on uncovering impact metrics like revenue or operational burn rate."
+                        f"Context: {st.session_state['career_vault']}. "
+                        f"The candidate claims: '{chat_input}'. "
+                        "Ask a probing, evidence-based question to uncover deep achievements "
+                        "or impact on company metrics that were not explicitly in the PDF."
                     )
                     res = client.models.generate_content(model="gemini-2.0-flash", contents=interview_prompt)
                     st.write(res.text)
                     st.caption("Captured and saved to Local Career Vault.")
                 except Exception as e:
-                    st.error("AI was unable to process your request. Please try again with a shorter claim.")
+                    st.error(f"AI Error: {e}")
 
-# --- Tab 2: Command Center (Scout Decoder) ---
+# --- Tab 2: Command Center (Full Context Scout) ---
 with tab_scout:
     st.header("The Deception Decoder")
     st.write("Analyze listings for 'Ghost Jobs' and 'Internal-Hire Theater.'")
     
-    jd_text = st.text_area("Paste a Job Description (JD):", height=200, placeholder="Paste here...")
+    jd_text = st.text_area("Paste a Job Description (JD):", height=200)
     if st.button("Analyze Listing"):
         if jd_text:
-            with st.spinner("Calculating Ghost Score..."):
+            with st.spinner("Decoding corporate-speak..."):
                 try:
-                    scout_prompt = f"Analyze this JD for: 1. Ghost Score (0-100), 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text[:5000]}"
+                    # Now allowing more text for JD analysis
+                    scout_prompt = f"Analyze this JD for: 1. Ghost Score, 2. Internal-Hire Signals, 3. Budget Prediction. JD: {jd_text}"
                     res = client.models.generate_content(model="gemini-2.0-flash", contents=scout_prompt)
                     st.markdown("### 📊 Scout Report")
                     st.write(res.text)
                 except Exception as e:
-                    st.error("Unable to analyze this JD. Please ensure the text is not too long.")
-        else:
-            st.warning("Please paste a job description first.")
+                    st.error(f"Analysis Error: {e}")
 
 # --- Tab 3: Strategic Intel (Company Archeology) ---
 with tab_intel:
     st.header("Company Archeology")
-    st.write("Research 'bleeding neck' pain points to win the interview.")
-    
     comp_name = st.text_input("Target Company Name:")
     if st.button("Generate Strategic Intel"):
         with st.spinner(f"Researching {comp_name}..."):
             try:
-                intel_prompt = f"Research {comp_name}. Identify: 1. Current Stage Pain Points, 2. A 3-Minute Interview Script."
+                intel_prompt = f"Research {comp_name}. Identify: 1. Stage Pain Points, 2. A 3-Minute Interview Script."
                 res = client.models.generate_content(model="gemini-2.0-flash", contents=intel_prompt)
-                st.markdown(f"### 🧠 {comp_name} Strategy Map")
                 st.write(res.text)
-            except Exception:
-                st.error("Research agent busy. Please try again.")
+            except Exception as e:
+                st.error(f"Research Error: {e}")
 
 # --- Tab 4: Outreach Architect ---
 with tab_outreach:
     st.header("LinkedIn Connection Architect")
-    st.write("Direct-to-Human connection sequences.")
-    
-    role = st.text_input("Decision Maker Title (e.g., VP of Engineering):")
+    role = st.text_input("Decision Maker Title:")
     if st.button("Draft Tactical Note"):
         if role:
             try:
-                outreach_prompt = f"Write a 300-char LinkedIn note to a {role}. Focus on solving a specific problem."
+                outreach_prompt = f"Write a 300-char LinkedIn note to a {role} at {comp_name}. Focus on solving a problem."
                 res = client.models.generate_content(model="gemini-2.0-flash", contents=outreach_prompt)
-                st.markdown("### 📧 Connection Pitch")
                 st.code(res.text, language="markdown")
-            except Exception:
-                st.error("Agent failed to draft note.")
-        else:
-            st.warning("Please specify a role.")
+            except Exception as e:
+                st.error(f"Drafting Error: {e}")
 
-# --- Tab 5: Market Tracking & Accountability ---
+# --- Tab 5: Market Tracking ---
 with tab_track:
     st.header("Accountability Ledger")
-    st.write("Track status and enforce the 'Feedback Escrow'.")
-    
     tracking_data = pd.DataFrame({
-        "Company": ["GlobalCorp", "TechStart", "InnovateIQ"],
-        "Status": ["Interview Scheduled", "Ghosted (Claim Pending)", "Applied"],
-        "Escrow Status": ["Locked", "Transferred to Seeker ($50)", "N/A"]
+        "Company": ["GlobalCorp", "TechStart"],
+        "Status": ["Interview Scheduled", "Ghosted (Claim Pending)"],
+        "Escrow Status": ["Locked", "Transferred to Seeker ($50)"]
     })
     st.table(tracking_data)
-    
-    st.divider()
-    st.button("Activate 'Be Discovered' Mode (Reverse Auction)")
-    st.caption("Verified anonymous profiles visible to employers for bidding.")
