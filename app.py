@@ -44,7 +44,8 @@ with st.sidebar:
             try:
                 reader = pypdf.PdfReader(uploaded_file)
                 raw_text = "".join([p.extract_text() for p in reader.pages])
-                prompt = f"Parse this profile into a structured summary for a 'Problem-Solver' profile. Identify Seniority, Wins, and Skills. TEXT: {raw_text}"
+                # Grounded prompt for initial vault seeding
+                prompt = f"Parse this profile into a structured summary for a 'Problem-Solver' profile. DO NOT add information not present in the text. Identify Seniority, Wins, and Skills. TEXT: {raw_text}"
                 res = client.models.generate_content(model="gemini-3-flash-preview", contents=prompt)
                 st.session_state['career_vault'] = res.text
                 st.success("Vault Active & Persistent.")
@@ -60,7 +61,7 @@ with st.sidebar:
     selected_model = st.selectbox("AI Model:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
     st.divider()
     st.metric("Hiring Reputation", "3.8/5", "-0.2")
-    st.caption("Jobberly v3.7.4")
+    st.caption("Jobberly v3.7.5")
 
 # 5. Main Application Tabs
 tabs = st.tabs([
@@ -80,7 +81,7 @@ with tabs[0]:
             
         st.divider()
         st.subheader("Interactive Quantification Chat")
-        st.write("Resumes often lack 'Problem-Solver' metrics. Let's quantify your vague claims.")
+        st.write("Let's quantify your wins. All suggestions must be grounded in your Vault.")
 
         for msg in st.session_state['chat_history']:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -89,7 +90,13 @@ with tabs[0]:
             st.session_state['chat_history'].append({"role": "user", "content": chat})
             with st.chat_message("user"): st.markdown(chat)
             with st.chat_message("assistant"):
-                prompt = f"Using this profile: {st.session_state['career_vault']}, help the user quantify this claim: {chat}. Use the STAR method to ask one metric-focused question."
+                prompt = f"""
+                PROFILE: {st.session_state['career_vault']}
+                CLAIM: {chat}
+                TASK: Use the STAR method to ask ONE metric-focused question to quantify this claim.
+                STRICT RULE: Do not suggest facts or metrics not in the profile. 
+                If the claim is unrelated to the profile, ask how it connects to the existing work history.
+                """
                 res = client.models.generate_content(model=selected_model, contents=prompt)
                 st.markdown(res.text)
                 st.session_state['chat_history'].append({"role": "assistant", "content": res.text})
@@ -114,7 +121,7 @@ with tabs[2]:
     target = st.text_input("Target Company:", value=st.session_state['detected_company'], key="intel_t")
     if st.button("Research Pain Points"):
         if target:
-            prompt = f"Identify 3 'Bleeding Neck' pain points and 5 strategic control questions for {target}. Context: {st.session_state['career_vault']}"
+            prompt = f"Identify 3 'Bleeding Neck' pain points and 5 strategic control questions for {target}. CONTEXT: {st.session_state['career_vault']}. Ground all insights in the relationship between the user's skills and company needs."
             res = client.models.generate_content(model=selected_model, contents=prompt)
             st.session_state['strategic_intel'] = res.text
             st.write(res.text)
@@ -125,16 +132,19 @@ with tabs[3]:
     target_comp = st.text_input("Company:", value=st.session_state['detected_company'], key="out_comp")
     if st.button("Identify Decision Makers"):
         if target_comp:
-            res = client.models.generate_content(model=selected_model, contents=f"Identify 2 managers at {target_comp} by NAME | TITLE.")
-            st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m]
+            res = client.models.generate_content(model=selected_model, contents=f"Identify 2 likely roles at {target_comp} that would manage the position in the JD. DO NOT hallucinate specific people names unless they are publicly verifiable. Use [Name Placeholder] if unsure.")
+            st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m or "[" in m]
     
-    sel = st.selectbox("Target Manager:", st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research)"])
+    sel = st.selectbox("Target Manager Role:", st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research)"])
     if st.button("Draft 1st-Person Note"):
-        if "|" in sel:
-            n, t = sel.split("|")
-            prompt = f"Write 1st-person LinkedIn note (max 300 chars) to {n} ({t}) at {target_comp}. Grounded ONLY in Vault: {st.session_state['career_vault']}"
-            res = client.models.generate_content(model=selected_model, contents=prompt)
-            st.code(res.text)
+        prompt = f"""
+        Write a LinkedIn note (max 300 chars) to the manager ({sel}) at {target_comp}.
+        STRICT GROUNDING: Use ONLY achievements from the Vault: {st.session_state['career_vault']}.
+        NO HALLUCINATIONS: If a specific skill or win is not in the Vault, DO NOT mention it.
+        If dates or metrics are missing, use placeholders like [Metric] or [Date].
+        """
+        res = client.models.generate_content(model=selected_model, contents=prompt)
+        st.code(res.text)
 
 # --- Tab 5: Application Builder ---
 with tabs[4]:
@@ -150,11 +160,15 @@ with tabs[4]:
                 VAULT: {st.session_state['career_vault']}
                 JD: {st.session_state['last_jd_analyzed']}
                 INTEL: {st.session_state['strategic_intel']}
-                RULES: 
-                1. US: Marketing brochure model, no photo, action-oriented. 
-                2. EU: Comprehensive record, 2 pages, photo placeholders.
-                3. NO HALLUCINATIONS: Grounded strictly in vault.
-                4. Cover Letter: PLAIN TEXT ONLY. No formatting.
+                
+                STRICT ANTI-HALLUCINATION RULES:
+                1. GROUNDING: Use ONLY professional facts, roles, and wins found in the VAULT.
+                2. PLACEHOLDERS: If the JD requires a metric or date not in the VAULT, you MUST use placeholders like [Number], [Metric], or [YYYY].
+                3. VERACITY: Do not invent company names, university degrees, or technical skills not present in the VAULT.
+                4. US: Marketing brochure model, no photo.
+                5. EU: Comprehensive record, photo placeholders.
+                6. Cover Letter: PLAIN TEXT ONLY.
+                
                 Split docs with '|||'.
                 """
                 res = client.models.generate_content(model=selected_model, contents=builder_prompt)
@@ -164,7 +178,7 @@ with tabs[4]:
 
         if st.session_state['final_resume']:
             st.subheader("Tailored Resume (Markdown)")
-            st.info("💡 Copy the code block below directly into Google Docs or Word. (Google Docs: Tools > Preferences > Enable Markdown)")
+            st.info("💡 Copy the code block below. All missing data points are marked with [Placeholders] to ensure 100% accuracy.")
             st.code(st.session_state['final_resume'], language="markdown")
             
             st.divider()
@@ -172,7 +186,7 @@ with tabs[4]:
             st.subheader("Strategic Cover Letter (Plain Text)")
             st.text_area("Final Cover Letter", st.session_state['final_cl'], height=250)
             
-            st.success("Application generated. Content is now ready for copy-pasting.")
+            st.success("Grounded application generated. Verify all [Placeholders] before submission.")
     else:
         st.warning("⚠️ Seed Vault and analyze a JD first.")
 
