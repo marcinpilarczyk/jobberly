@@ -2,11 +2,12 @@ import streamlit as st
 from google import genai
 import pypdf
 import pandas as pd
+from fpdf import FPDF
 
 # 1. Page Configuration
 st.set_page_config(page_title="Jobberly | Candidate Advocate", layout="wide", page_icon="🛡️")
 
-# 2. API Configuration (Using Streamlit Secrets)
+# 2. API Configuration
 try:
     client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 except Exception:
@@ -26,217 +27,155 @@ if 'strategic_intel' not in st.session_state:
     st.session_state['strategic_intel'] = ""
 if 'potential_managers' not in st.session_state:
     st.session_state['potential_managers'] = []
-if 'generated_resume' not in st.session_state:
-    st.session_state['generated_resume'] = ""
-if 'generated_cover_letter' not in st.session_state:
-    st.session_state['generated_cover_letter'] = ""
+if 'final_resume' not in st.session_state:
+    st.session_state['final_resume'] = ""
+if 'final_cl' not in st.session_state:
+    st.session_state['final_cl'] = ""
 
-# 4. Sidebar: Identity, Metrics, and Persistent Settings
+# 4. Sidebar: Persistent Vault & Identity Settings
 with st.sidebar:
     st.title("🛡️ Jobberly")
     st.markdown("**The Candidate-Centric Employment Protocol**")
     st.divider()
     
     st.subheader("⚙️ Vault Settings")
-    if not st.session_state['career_vault']:
-        st.info("Your Career Vault is empty. Seed it with your LinkedIn PDF to begin.")
-    
-    uploaded_file = st.file_uploader("Upload LinkedIn PDF", type="pdf", key="vault_uploader")
-    
+    uploaded_file = st.file_uploader("Seed/Update Vault (LinkedIn PDF)", type="pdf", key="vault_up")
     if uploaded_file:
-        with st.spinner("Forensically seeding your Career Vault..."):
+        with st.spinner("Processing professional identity..."):
             try:
                 reader = pypdf.PdfReader(uploaded_file)
-                full_text = "".join([page.extract_text() for page in reader.pages])
-                prompt = f"Parse this profile into a structured summary focusing on Seniority, Skills, and specific Wins. TEXT: {full_text}"
-                response = client.models.generate_content(model="gemini-3-flash-preview", contents=prompt)
-                st.session_state['career_vault'] = response.text
+                raw_text = "".join([p.extract_text() for p in reader.pages])
+                prompt = f"Summarize this professional profile into a 'Problem-Solver' asset: {raw_text}"
+                res = client.models.generate_content(model="gemini-3-flash-preview", contents=prompt)
+                st.session_state['career_vault'] = res.text
                 st.success("Vault Synchronized.")
             except Exception as e:
-                st.error(f"Seeding failed: {e}")
+                st.error(f"Seeding Error: {e}")
     
     if st.session_state['career_vault']:
-        if st.button("🗑️ Delete Professional Identity"):
+        if st.button("🗑️ Wipe Career Vault"):
             st.session_state['career_vault'] = None
             st.rerun()
             
     st.divider()
-    st.subheader("🤖 AI Model")
-    selected_model = st.selectbox("Tier:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
-    
+    selected_model = st.selectbox("AI Model:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
     st.divider()
-    st.metric("Global Hiring Reputation", "3.8/5", "-0.2")
-    st.caption("Jobberly v3.5.0")
+    st.metric("Hiring Reputation", "3.8/5", "-0.2")
+    st.caption("Jobberly v3.6.0")
 
-# 5. Main Application Interface
+# --- PDF Generation Helper ---
+def export_as_pdf(resume_text, cl_text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.multi_cell(0, 10, "--- TAILORED RESUME ---")
+    pdf.multi_cell(0, 10, resume_text)
+    pdf.add_page()
+    pdf.multi_cell(0, 10, "--- STRATEGIC COVER LETTER ---")
+    pdf.multi_cell(0, 10, cl_text)
+    return pdf.output()
+
+# 5. Main Application Tabs
 tabs = st.tabs([
-    "🚀 Discovery Engine", 
-    "🕵️ Command Center", 
-    "🧠 Strategic Intel", 
-    "📧 Outreach Architect",
-    "📝 Application Builder",
-    "📊 Market Tracking"
+    "🚀 Discovery Engine", "🕵️ Command Center", "🧠 Strategic Intel", 
+    "📧 Outreach Architect", "📝 Application Builder", "📊 Market Tracking"
 ])
 
 # --- Tab 1: Discovery Engine ---
 with tabs[0]:
-    st.header("🚀 The Discovery Engine")
-    
+    st.header("Achievement Refinement Agent")
     if not st.session_state['career_vault']:
-        st.warning("⚠️ Access Denied: Please seed your Career Vault in the Sidebar Settings.")
+        st.warning("Please seed your Vault in the sidebar to begin.")
     else:
-        st.subheader("Interactive Achievement Refinement")
-        st.write("Let's identify vague claims in your profile and turn them into quantifiable wins.")
+        for msg in st.session_state['chat_history']:
+            with st.chat_message(msg["role"]): st.markdown(msg["content"])
         
-        with st.expander("🔍 View Profile Analysis"):
-            st.write(st.session_state['career_vault'])
-
-        st.divider()
-        
-        for message in st.session_state['chat_history']:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-        if chat_prompt := st.chat_input("Explain a project or a major win..."):
-            st.session_state['chat_history'].append({"role": "user", "content": chat_prompt})
-            with st.chat_message("user"):
-                st.markdown(chat_prompt)
-
+        if chat := st.chat_input("Explain a win..."):
+            st.session_state['chat_history'].append({"role": "user", "content": chat})
+            with st.chat_message("user"): st.markdown(chat)
             with st.chat_message("assistant"):
-                refinement_prompt = f"""
-                You are the Jobberly Achievement Architect. 
-                VAULT CONTEXT: {st.session_state['career_vault']}
-                USER INPUT: {chat_prompt}
-                
-                Ask one specific, conversational question to find the metric (e.g., revenue impact, time saved, or burn rate reduction). 
-                Focus on making the achievement forensic and clear.
-                """
-                response = client.models.generate_content(model=selected_model, contents=refinement_prompt)
-                st.markdown(response.text)
-                st.session_state['chat_history'].append({"role": "assistant", "content": response.text})
+                prompt = f"Help user quantify this win for their vault: {chat}. Ask one metric-focused question."
+                res = client.models.generate_content(model=selected_model, contents=prompt)
+                st.markdown(res.text)
+                st.session_state['chat_history'].append({"role": "assistant", "content": res.text})
 
 # --- Tab 2: Command Center ---
 with tabs[1]:
-    st.header("🕵️ Command Center")
-    st.write("Analyze listings for 'Ghost Jobs' and 'Compliance Theater'.")
-    
-    jd_text = st.text_area("Paste Job Description (JD):", height=200, key="scout_jd")
-    if st.button("Generate Trust Report"):
-        if jd_text:
-            st.session_state['last_jd_analyzed'] = jd_text
-            with st.spinner("Decoding intent signals..."):
-                try:
-                    scout_prompt = f"""
-                    Analyze this JD for Trust Score, Red Flags, Internal-Hire DNA, and Budget. 
-                    IDENTIFY THE COMPANY NAME CLEARLY.
-                    JD: {jd_text}
-                    """
-                    res = client.models.generate_content(model=selected_model, contents=scout_prompt)
-                    st.markdown("---")
-                    st.markdown(res.text)
-                    
-                    # Forensic extraction of company name
-                    extract_prompt = f"Extract only the company name from this report: {res.text}. Return only the name."
-                    name_res = client.models.generate_content(model="gemini-3-flash-preview", contents=extract_prompt)
-                    st.session_state['detected_company'] = name_res.text.strip()
-                except Exception as e:
-                    st.error(f"Analysis Error: {e}")
-        else:
-            st.warning("Please paste a job description.")
+    st.header("Forensic JD Scout")
+    jd = st.text_area("Paste JD:", height=200, key="jd_in")
+    if st.button("Analyze Trust DNA"):
+        if jd:
+            st.session_state['last_jd_analyzed'] = jd
+            res = client.models.generate_content(model=selected_model, contents=f"Analyze for Trust, Internal-Hire DNA, and Budget. CLEARLY IDENTIFY COMPANY NAME. JD: {jd}")
+            st.markdown(res.text)
+            comp_res = client.models.generate_content(model="gemini-3-flash-preview", contents=f"Extract only company name from: {res.text}")
+            st.session_state['detected_company'] = comp_res.text.strip()
 
 # --- Tab 3: Strategic Intel ---
 with tabs[2]:
-    st.header("🧠 Strategic Intel")
-    st.write("Research 'bleeding neck' pain points and prepare strategic control questions.")
-    
-    # Auto-populated from Command Center
-    comp_name = st.text_input("Target Company:", value=st.session_state['detected_company'], key="intel_comp")
-    
-    if st.button("Generate Intelligence Map"):
-        if comp_name:
-            with st.spinner(f"Researching {comp_name}..."):
-                try:
-                    intel_prompt = f"""
-                    Research {comp_name}. 
-                    Identify: 
-                    1. Company Stage & Market Position.
-                    2. 'Bleeding Neck' Pain Points (Top 3 friction areas).
-                    3. Strategic Control Questions: 5 deep-dive questions the candidate can ask to demonstrate understanding and control the interview.
-                    
-                    Context from Vault: {st.session_state['career_vault']}
-                    """
-                    res = client.models.generate_content(model=selected_model, contents=intel_prompt)
-                    st.session_state['strategic_intel'] = res.text
-                    st.markdown(f"### 🧬 {comp_name} Strategy Map")
-                    st.write(res.text)
-                except Exception as e:
-                    st.error(f"Intel Error: {e}")
+    st.header("Company Intelligence")
+    target = st.text_input("Target Company:", value=st.session_state['detected_company'], key="intel_t")
+    if st.button("Research Pain Points"):
+        if target:
+            prompt = f"Identify 3 'Bleeding Neck' pain points and 5 control questions for {target}. Vault: {st.session_state['career_vault']}"
+            res = client.models.generate_content(model=selected_model, contents=prompt)
+            st.session_state['strategic_intel'] = res.text
+            st.write(res.text)
 
 # --- Tab 4: Outreach Architect ---
 with tabs[3]:
-    st.header("📧 Outreach Architect")
-    st.write("Identify decision-makers and craft grounded personal notes.")
+    st.header("Outreach Architect")
+    target_comp = st.text_input("Company:", value=st.session_state['detected_company'], key="out_comp")
+    if st.button("Identify Decision Makers"):
+        if target_comp:
+            res = client.models.generate_content(model=selected_model, contents=f"Identify 2 managers at {target_comp} by NAME | TITLE.")
+            st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m]
     
-    # Auto-populated from previous tabs
-    outreach_comp = st.text_input("Target Company:", value=st.session_state['detected_company'], key="outreach_comp")
-    
-    if st.button("Identify Potential Hiring Managers"):
-        if outreach_comp:
-            with st.spinner(f"Identifying managers at {outreach_comp}..."):
-                res = client.models.generate_content(model=selected_model, contents=f"Identify 2 likely managers at {outreach_comp} by NAME | TITLE.")
-                st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m]
-    
-    selected_target = st.selectbox("Select Target:", options=st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research)"])
-    
-    if st.button("Generate Grounded Note"):
-        if selected_target and "|" in selected_target:
-            name, title = selected_target.split("|")
-            out_prompt = f"""
-            Write a 1st-person note (max 300 chars) to {name.strip()} ({title.strip()}) at {outreach_comp}.
-            STRICT GROUNDING: Use ONLY wins/skills from this vault: {st.session_state['career_vault']}.
-            DO NOT HALLUCINATE.
-            """
-            res = client.models.generate_content(model=selected_model, contents=out_prompt)
-            st.markdown(f"### 📧 Personal Note for {name.strip()}")
-            st.code(res.text, language="markdown")
+    sel = st.selectbox("Target:", st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research)"])
+    if st.button("Draft 1st-Person Note"):
+        if "|" in sel:
+            n, t = sel.split("|")
+            prompt = f"Write 1st-person note to {n} ({t}) at {target_comp}. Grounded in Vault: {st.session_state['career_vault']}"
+            res = client.models.generate_content(model=selected_model, contents=prompt)
+            st.code(res.text)
 
 # --- Tab 5: Application Builder ---
 with tabs[4]:
-    st.header("📝 Application Builder")
-    if not st.session_state['career_vault'] or not st.session_state['last_jd_analyzed']:
-        st.warning("⚠️ Complete Vault seeding and JD analysis first.")
-    else:
-        st.info(f"Generating documents for: **{st.session_state['detected_company']}**")
-        
-        if st.button("Generate Full Application Docs"):
-            with st.spinner("Synthesizing tailored documents..."):
-                builder_prompt = f"""
-                Generate a FULL Resume (Markdown) and a PLAIN TEXT Cover Letter (No formatting, no bold, no bullets).
-                
-                ### DATA:
+    st.header("Application Builder")
+    if st.session_state['career_vault'] and st.session_state['last_jd_analyzed']:
+        region = st.radio("Resume Geography:", ["US Resume", "European CV"])
+        if st.button("Generate Tailored Application"):
+            with st.spinner("Bridging Vault to opportunity..."):
+                prompt = f"""
+                You are a Jobberly Architect. Generate a FULL Resume and Plain Text Cover Letter.
+                GEOGRAPHY: {region}
                 VAULT: {st.session_state['career_vault']}
                 JD: {st.session_state['last_jd_analyzed']}
                 INTEL: {st.session_state['strategic_intel']}
                 
-                ### RULES:
-                1. STRICT GROUNDING: Use ONLY existing vault experience.
-                2. Use placeholders like [PHONE] for missing contact info.
-                3. First-person POV.
-                4. Split docs with '|||'.
+                ### ARCHITECTURE RULES:
+                - US: Marketing brochure, reverse-chronological, NO personal data/photo, action-oriented.
+                - EU: Historical record, formal, granular education, include placeholders for personal data (photo/DOB).
+                - GENERAL: Use STAR/XYZ metrics. Use single-column layout. NO HALLUCINATIONS. 
+                - If no metrics in vault, insert [METRIC] placeholder.
+                - Cover Letter: STRICT PLAIN TEXT. NO bold, italics, or bullets.
+                Split documents with '|||'.
                 """
-                res = client.models.generate_content(model=selected_model, contents=builder_prompt)
-                parts = res.text.split('|||')
-                st.session_state['generated_resume'] = parts[0].strip() if len(parts) > 0 else res.text
-                st.session_state['generated_cover_letter'] = parts[1].strip() if len(parts) > 1 else ""
+                res = client.models.generate_content(model=selected_model, contents=prompt)
+                parts = res.text.split("|||")
+                st.session_state['final_resume'] = parts[0].strip() if len(parts) > 0 else res.text
+                st.session_state['final_cl'] = parts[1].strip() if len(parts) > 1 else ""
 
-        if st.session_state['generated_resume']:
-            st.subheader("📄 Tailored Resume")
-            st.text_area("Edit & Copy", value=st.session_state['generated_resume'], height=400)
+        if st.session_state['final_resume']:
+            st.session_state['final_resume'] = st.text_area("Edit Resume", st.session_state['final_resume'], height=300)
+            st.session_state['final_cl'] = st.text_area("Edit Cover Letter (Plain Text)", st.session_state['final_cl'], height=200)
             
-            st.subheader("📧 Strategic Cover Letter (Plain Text)")
-            st.text_area("Copy Text", value=st.session_state['generated_cover_letter'], height=300)
+            pdf_bytes = export_as_pdf(st.session_state['final_resume'], st.session_state['final_cl'])
+            st.download_button("📥 Download PDF for Application", pdf_bytes, file_name="Jobberly_Application.pdf", mime="application/pdf")
+    else:
+        st.warning("Ensure Vault is seeded and JD is analyzed.")
 
-# --- Tab 6: Market Tracking ---
+# --- Tab 6: Tracking ---
 with tabs[5]:
-    st.header("📊 Market Tracking")
-    st.table(pd.DataFrame({"Company": [st.session_state['detected_company']], "Status": ["Drafts Ready"], "Escrow": ["Active"]}))
+    st.header("Accountability Ledger")
+    st.table(pd.DataFrame({"Company": [st.session_state['detected_company']], "Status": ["Drafting Ready"], "Escrow": ["Active"]}))
