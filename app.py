@@ -34,61 +34,71 @@ if 'final_cl' not in st.session_state:
 
 # --- HELPER: PDF Generation & Sanitization ---
 def sanitize_for_pdf(text):
-    """
-    Cleans text for FPDF latin-1 encoding.
-    Aggressively removes Markdown artifacts to ensure a professional, non-synthetic look.
-    """
+    """Aggressively cleans text for FPDF latin-1 encoding and removes MD artifacts."""
     replacements = {
         '\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
         '\u201c': '"', '\u201d': '"', '\u2022': '*', '\u2026': '...',
-        '**': '', '__': '', '###': '', '##': '', '#': '', '*': '-'
+        '**': '', '__': '', '###': '', '##': '', '#': ''
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
-    # Filter out any non-latin-1 characters to prevent FPDF crashes
     return text.encode('latin-1', 'ignore').decode('latin-1')
 
 def export_as_pdf(resume_text, cl_text=None, export_mode="Both"):
     """
     Generates a professional, ATS-optimized PDF.
-    - Uses Helvetica for OCR safety and neutrality.
+    - Helvetica for OCR safety (Sans-Serif preferred for 2025).
     - Single-column imperative for 100% parsing accuracy.
-    - 1-inch (25.4mm) standard margins.
+    - Uses epw (effective page width) to prevent rendering crashes.
     """
     pdf = FPDF(unit="mm", format="A4")
-    pdf.set_margins(25.4, 25.4, 25.4) 
-    pdf.set_auto_page_break(auto=True, margin=25.4)
+    pdf.set_margins(20, 20, 20) 
+    pdf.set_auto_page_break(auto=True, margin=20)
     
     # --- Part 1: Resume ---
     if export_mode in ["Resume Only", "Both"]:
         pdf.add_page()
-        pdf.set_font("Helvetica", size=11)
-        
-        # Use a consistent width variable to prevent horizontal space errors
-        effective_page_width = pdf.w - 2 * 25.4
+        width = pdf.epw # Use Effective Page Width for safety
         
         lines = resume_text.split('\n')
+        first_line = True
+        
         for line in lines:
             clean_line = sanitize_for_pdf(line).strip()
             if not clean_line:
-                pdf.ln(3) # Better vertical spacing between blocks
+                pdf.ln(2)
                 continue
             
-            # Formatting logic: Bold for headers (Uppercase or starting with MD header markers)
-            if clean_line.isupper() or line.startswith('#'):
+            # 1. Header Logic: First line is usually the Name
+            if first_line:
+                pdf.set_font("Helvetica", 'B', 16)
+                pdf.cell(width, 10, clean_line, ln=True, align='C')
                 pdf.ln(2)
+                first_line = False
+                continue
+            
+            # 2. Section Header Logic: Uppercase or Markdown headers
+            if clean_line.isupper() or line.startswith('#'):
+                pdf.ln(4)
                 pdf.set_font("Helvetica", 'B', 12)
-                pdf.multi_cell(effective_page_width, 6, clean_line)
-                pdf.set_font("Helvetica", size=11)
+                pdf.cell(width, 7, clean_line, ln=True)
+                # Drawing a subtle line below section headers
+                pdf.line(pdf.get_x(), pdf.get_y(), pdf.get_x() + width, pdf.get_y())
+                pdf.ln(2)
+                pdf.set_font("Helvetica", size=10.5)
+            # 3. List Item Logic
+            elif clean_line.startswith('-') or clean_line.startswith('*'):
+                pdf.multi_cell(width, 5, clean_line)
+            # 4. Standard Body Text
             else:
-                pdf.multi_cell(effective_page_width, 5, clean_line)
+                pdf.multi_cell(width, 5, clean_line)
 
     # --- Part 2: Cover Letter ---
     if export_mode in ["Both"] and cl_text:
         pdf.add_page()
-        effective_page_width = pdf.w - 2 * 25.4
+        width = pdf.epw
         pdf.set_font("Helvetica", 'B', 14)
-        pdf.cell(0, 10, "STRATEGIC COVER LETTER", ln=True)
+        pdf.cell(width, 10, "STRATEGIC COVER LETTER", ln=True)
         pdf.ln(5)
         pdf.set_font("Helvetica", size=11)
         
@@ -98,7 +108,7 @@ def export_as_pdf(resume_text, cl_text=None, export_mode="Both"):
             if not clean_line:
                 pdf.ln(4)
                 continue
-            pdf.multi_cell(effective_page_width, 6, clean_line)
+            pdf.multi_cell(width, 6, clean_line)
     
     return bytes(pdf.output())
 
@@ -131,7 +141,7 @@ with st.sidebar:
     selected_model = st.selectbox("AI Model:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
     st.divider()
     st.metric("Hiring Reputation", "3.8/5", "-0.2")
-    st.caption("Jobberly v3.7.2")
+    st.caption("Jobberly v3.7.3")
 
 # 5. Main Application Tabs
 tabs = st.tabs([
