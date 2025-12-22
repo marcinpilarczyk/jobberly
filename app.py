@@ -34,34 +34,57 @@ if 'final_cl' not in st.session_state:
 
 # --- HELPER: PDF Generation & Sanitization ---
 def sanitize_for_pdf(text):
-    """Replaces Unicode characters causing EncodingErrors in standard FPDF fonts."""
+    """Replaces Unicode characters and strips Markdown symbols for a professional look."""
     replacements = {
         '\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
-        '\u201c': '"', '\u201d': '"', '\u2022': '*', '\u2026': '...'
+        '\u201c': '"', '\u201d': '"', '\u2022': '*', '\u2026': '...',
+        '**': '', '###': '', '##': '', '#': '' # Stripping MD for clean PDF output
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
     return text.encode('latin-1', 'ignore').decode('latin-1')
 
-def export_as_pdf(resume_text, cl_text):
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
+def export_as_pdf(resume_text, cl_text=None, export_mode="Both"):
+    """
+    Generates a professional, ATS-optimized PDF.
+    - Single-column layout for 100% parsing accuracy [cite: 391]
+    - Helvetica font for neutral, human-resonant OCR safety [cite: 411]
+    - 1-inch (25.4mm) standard margins [cite: 419]
+    """
+    pdf = FPDF(unit="mm", format="A4")
+    pdf.set_margins(25.4, 25.4, 25.4) 
+    pdf.set_auto_page_break(auto=True, margin=20)
     
-    # Page 1: Resume
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "TAILORED RESUME", ln=True, align='C')
-    pdf.set_font("Arial", size=10)
-    pdf.multi_cell(0, 5, sanitize_for_pdf(resume_text))
+    # --- Part 1: Resume ---
+    if export_mode in ["Resume Only", "Both"]:
+        pdf.add_page()
+        pdf.set_font("Helvetica", size=11) # Body font size 11pt [cite: 416]
+        
+        lines = resume_text.split('\n')
+        for line in lines:
+            clean_line = sanitize_for_pdf(line)
+            if not clean_line.strip():
+                pdf.ln(2)
+                continue
+            
+            # Formatting logic: Bold headers for uppercase lines or lines with specific headers
+            if line.startswith('#') or clean_line.isupper():
+                pdf.set_font("Helvetica", 'B', 12) # Header font size 12-14pt [cite: 418]
+                pdf.multi_cell(0, 6, clean_line)
+                pdf.set_font("Helvetica", size=11)
+            else:
+                pdf.multi_cell(0, 5, clean_line)
+
+    # --- Part 2: Cover Letter ---
+    if export_mode in ["Both"] and cl_text:
+        pdf.add_page()
+        pdf.set_font("Helvetica", 'B', 14)
+        pdf.cell(0, 10, "STRATEGIC COVER LETTER", ln=True)
+        pdf.ln(5)
+        pdf.set_font("Helvetica", size=11)
+        pdf.multi_cell(0, 6, sanitize_for_pdf(cl_text))
     
-    # Page 2: Cover Letter
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "STRATEGIC COVER LETTER", ln=True, align='C')
-    pdf.set_font("Arial", size=11)
-    pdf.multi_cell(0, 6, sanitize_for_pdf(cl_text))
-    
-    return bytes(pdf.output()) # Ensure bytes return for download button
+    return bytes(pdf.output())
 
 # 4. Sidebar: Identity, Metrics, and Persistent Vault Settings
 with st.sidebar:
@@ -92,7 +115,7 @@ with st.sidebar:
     selected_model = st.selectbox("AI Model:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
     st.divider()
     st.metric("Hiring Reputation", "3.8/5", "-0.2")
-    st.caption("Jobberly v3.7.0")
+    st.caption("Jobberly v3.7.1")
 
 # 5. Main Application Tabs
 tabs = st.tabs([
@@ -112,7 +135,7 @@ with tabs[0]:
             
         st.divider()
         st.subheader("Interactive Quantification Chat")
-        st.write("Resumes often lack 'Problem-Solver' metrics. Let's quantify your vague claims[cite: 457].")
+        st.write("Resumes often lack 'Problem-Solver' metrics. Let's quantify your vague claims.")
 
         for msg in st.session_state['chat_history']:
             with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -121,7 +144,7 @@ with tabs[0]:
             st.session_state['chat_history'].append({"role": "user", "content": chat})
             with st.chat_message("user"): st.markdown(chat)
             with st.chat_message("assistant"):
-                prompt = f"Using this profile: {st.session_state['career_vault']}, help the user quantify this claim: {chat}. Use the STAR method to ask one metric-focused question[cite: 449]."
+                prompt = f"Using this profile: {st.session_state['career_vault']}, help the user quantify this claim: {chat}. Use the STAR method to ask one metric-focused question."
                 res = client.models.generate_content(model=selected_model, contents=prompt)
                 st.markdown(res.text)
                 st.session_state['chat_history'].append({"role": "assistant", "content": res.text})
@@ -172,7 +195,12 @@ with tabs[3]:
 with tabs[4]:
     st.header("📝 Application Builder")
     if st.session_state['career_vault'] and st.session_state['last_jd_analyzed']:
-        region = st.radio("Geopolitical Standard:", ["US Resume", "European CV"])
+        col1, col2 = st.columns(2)
+        with col1:
+            region = st.radio("Geopolitical Standard:", ["US Resume", "European CV"])
+        with col2:
+            export_choice = st.radio("Export Preference:", ["Resume Only", "Both"], index=1)
+            
         if st.button("Generate Grounded Application"):
             with st.spinner("Bridging Vault to opportunity..."):
                 builder_prompt = f"""
@@ -182,10 +210,10 @@ with tabs[4]:
                 JD: {st.session_state['last_jd_analyzed']}
                 INTEL: {st.session_state['strategic_intel']}
                 RULES: 
-                1. US: Marketing brochure model, no photo, action-oriented[cite: 318]. 
-                2. EU: Comprehensive record, 2 pages, photo placeholders[cite: 335].
+                1. US: Marketing brochure model, no photo, action-oriented. 
+                2. EU: Comprehensive record, 2 pages, photo placeholders.
                 3. NO HALLUCINATIONS: Grounded strictly in vault.
-                4. Cover Letter: PLAIN TEXT ONLY. No formatting[cite: 212].
+                4. Cover Letter: PLAIN TEXT ONLY. No formatting.
                 Split docs with '|||'.
                 """
                 res = client.models.generate_content(model=selected_model, contents=builder_prompt)
@@ -199,8 +227,14 @@ with tabs[4]:
             
             if st.button("Prepare PDF"):
                 try:
-                    pdf_bytes = export_as_pdf(st.session_state['final_resume'], st.session_state['final_cl'])
-                    st.download_button("📥 Download PDF", pdf_bytes, file_name="Application.pdf", mime="application/pdf")
+                    pdf_bytes = export_as_pdf(
+                        st.session_state['final_resume'], 
+                        st.session_state['final_cl'], 
+                        export_mode=export_choice
+                    )
+                    fname = "Resume.pdf" if export_choice == "Resume Only" else "Application_Package.pdf"
+                    st.download_button(f"📥 Download {fname}", pdf_bytes, file_name=fname, mime="application/pdf")
+                    st.success(f"{export_choice} Export Generated Successfully.")
                 except Exception as e:
                     st.error(f"PDF Error: {e}")
     else:
