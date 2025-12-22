@@ -34,55 +34,71 @@ if 'final_cl' not in st.session_state:
 
 # --- HELPER: PDF Generation & Sanitization ---
 def sanitize_for_pdf(text):
-    """Replaces Unicode characters and strips Markdown symbols for a professional look."""
+    """
+    Cleans text for FPDF latin-1 encoding.
+    Aggressively removes Markdown artifacts to ensure a professional, non-synthetic look.
+    """
     replacements = {
         '\u2013': '-', '\u2014': '-', '\u2018': "'", '\u2019': "'",
         '\u201c': '"', '\u201d': '"', '\u2022': '*', '\u2026': '...',
-        '**': '', '###': '', '##': '', '#': '' # Stripping MD for clean PDF output
+        '**': '', '__': '', '###': '', '##': '', '#': '', '*': '-'
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
+    # Filter out any non-latin-1 characters to prevent FPDF crashes
     return text.encode('latin-1', 'ignore').decode('latin-1')
 
 def export_as_pdf(resume_text, cl_text=None, export_mode="Both"):
     """
     Generates a professional, ATS-optimized PDF.
-    - Single-column layout for 100% parsing accuracy [cite: 391]
-    - Helvetica font for neutral, human-resonant OCR safety [cite: 411]
-    - 1-inch (25.4mm) standard margins [cite: 419]
+    - Uses Helvetica for OCR safety and neutrality.
+    - Single-column imperative for 100% parsing accuracy.
+    - 1-inch (25.4mm) standard margins.
     """
     pdf = FPDF(unit="mm", format="A4")
     pdf.set_margins(25.4, 25.4, 25.4) 
-    pdf.set_auto_page_break(auto=True, margin=20)
+    pdf.set_auto_page_break(auto=True, margin=25.4)
     
     # --- Part 1: Resume ---
     if export_mode in ["Resume Only", "Both"]:
         pdf.add_page()
-        pdf.set_font("Helvetica", size=11) # Body font size 11pt [cite: 416]
+        pdf.set_font("Helvetica", size=11)
+        
+        # Use a consistent width variable to prevent horizontal space errors
+        effective_page_width = pdf.w - 2 * 25.4
         
         lines = resume_text.split('\n')
         for line in lines:
-            clean_line = sanitize_for_pdf(line)
-            if not clean_line.strip():
-                pdf.ln(2)
+            clean_line = sanitize_for_pdf(line).strip()
+            if not clean_line:
+                pdf.ln(3) # Better vertical spacing between blocks
                 continue
             
-            # Formatting logic: Bold headers for uppercase lines or lines with specific headers
-            if line.startswith('#') or clean_line.isupper():
-                pdf.set_font("Helvetica", 'B', 12) # Header font size 12-14pt [cite: 418]
-                pdf.multi_cell(0, 6, clean_line)
+            # Formatting logic: Bold for headers (Uppercase or starting with MD header markers)
+            if clean_line.isupper() or line.startswith('#'):
+                pdf.ln(2)
+                pdf.set_font("Helvetica", 'B', 12)
+                pdf.multi_cell(effective_page_width, 6, clean_line)
                 pdf.set_font("Helvetica", size=11)
             else:
-                pdf.multi_cell(0, 5, clean_line)
+                pdf.multi_cell(effective_page_width, 5, clean_line)
 
     # --- Part 2: Cover Letter ---
     if export_mode in ["Both"] and cl_text:
         pdf.add_page()
+        effective_page_width = pdf.w - 2 * 25.4
         pdf.set_font("Helvetica", 'B', 14)
         pdf.cell(0, 10, "STRATEGIC COVER LETTER", ln=True)
         pdf.ln(5)
         pdf.set_font("Helvetica", size=11)
-        pdf.multi_cell(0, 6, sanitize_for_pdf(cl_text))
+        
+        cl_lines = cl_text.split('\n')
+        for line in cl_lines:
+            clean_line = sanitize_for_pdf(line).strip()
+            if not clean_line:
+                pdf.ln(4)
+                continue
+            pdf.multi_cell(effective_page_width, 6, clean_line)
     
     return bytes(pdf.output())
 
@@ -115,7 +131,7 @@ with st.sidebar:
     selected_model = st.selectbox("AI Model:", ["gemini-3-flash-preview", "gemini-3-pro-preview"], index=0)
     st.divider()
     st.metric("Hiring Reputation", "3.8/5", "-0.2")
-    st.caption("Jobberly v3.7.1")
+    st.caption("Jobberly v3.7.2")
 
 # 5. Main Application Tabs
 tabs = st.tabs([
@@ -234,7 +250,7 @@ with tabs[4]:
                     )
                     fname = "Resume.pdf" if export_choice == "Resume Only" else "Application_Package.pdf"
                     st.download_button(f"📥 Download {fname}", pdf_bytes, file_name=fname, mime="application/pdf")
-                    st.success(f"{export_choice} Export Generated Successfully.")
+                    st.success(f"Professional {export_choice} Ready.")
                 except Exception as e:
                     st.error(f"PDF Error: {e}")
     else:
