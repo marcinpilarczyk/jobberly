@@ -31,6 +31,11 @@ if 'final_resume' not in st.session_state:
     st.session_state['final_resume'] = ""
 if 'final_cl' not in st.session_state:
     st.session_state['final_cl'] = ""
+# Initialize input keys to prevent errors on first load
+if 'intel_t' not in st.session_state:
+    st.session_state['intel_t'] = ""
+if 'outreach_comp' not in st.session_state:
+    st.session_state['outreach_comp'] = ""
 
 # --- CONSTANTS: Unified Report Protocol ---
 REPORT_PROTOCOL_HINT = """
@@ -170,10 +175,11 @@ with tabs[1]:
                     comp_res = client.models.generate_content(model="gemini-3-flash-preview", contents=f"Extract only the company name from: {res.text}. Return only the name.")
                     company_name = comp_res.text.strip()
                     
-                    # Sync to Global State and Tab-specific inputs
+                    # Sync to Session State via keys
                     st.session_state['detected_company'] = company_name
                     st.session_state['intel_t'] = company_name
                     st.session_state['outreach_comp'] = company_name
+                    st.rerun() # Refresh to populate synced fields immediately
                     
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
@@ -181,8 +187,8 @@ with tabs[1]:
 # --- Tab 3: Strategic Intel ---
 with tabs[2]:
     st.header("Strategic Intelligence")
-    # Pre-populated from detected_company
-    target = st.text_input("Target Company:", value=st.session_state['detected_company'], key="intel_t")
+    # Use key alone to link to session state; removing "value=" avoids conflicts
+    target = st.text_input("Target Company:", key="intel_t")
     if st.button("Research Pain Points"):
         if target:
             with st.spinner(f"Researching {target}..."):
@@ -202,13 +208,12 @@ with tabs[2]:
 # --- Tab 4: Outreach Architect ---
 with tabs[3]:
     st.header("Outreach Architect")
-    # Pre-populated from detected_company
-    out_comp = st.text_input("Target Company:", value=st.session_state['detected_company'], key="outreach_comp")
+    # Use key alone to link to session state; removing "value=" avoids conflicts
+    out_comp = st.text_input("Target Company:", key="outreach_comp")
     
     if st.button("Identify Potential Managers"):
         if out_comp:
             with st.spinner(f"Identifying role-relevant managers at {out_comp}..."):
-                # REFINED PROMPT: Incorporates JD to find department-specific managers
                 research_prompt = f"""
                 Identify 2 specific hiring managers at {out_comp} who would likely be the direct supervisor or department head for the role described here:
                 JD: {st.session_state['last_jd_analyzed']}
