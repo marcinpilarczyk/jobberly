@@ -165,14 +165,23 @@ with tabs[1]:
                     res = client.models.generate_content(model=selected_model, contents=scout_prompt)
                     st.markdown("---")
                     st.markdown(res.text)
+                    
+                    # Extract Company Name
                     comp_res = client.models.generate_content(model="gemini-3-flash-preview", contents=f"Extract only the company name from: {res.text}. Return only the name.")
-                    st.session_state['detected_company'] = comp_res.text.strip()
+                    company_name = comp_res.text.strip()
+                    
+                    # Sync to Global State and Tab-specific inputs
+                    st.session_state['detected_company'] = company_name
+                    st.session_state['intel_t'] = company_name
+                    st.session_state['outreach_comp'] = company_name
+                    
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
 
 # --- Tab 3: Strategic Intel ---
 with tabs[2]:
     st.header("Strategic Intelligence")
+    # Pre-populated from detected_company
     target = st.text_input("Target Company:", value=st.session_state['detected_company'], key="intel_t")
     if st.button("Research Pain Points"):
         if target:
@@ -193,12 +202,22 @@ with tabs[2]:
 # --- Tab 4: Outreach Architect ---
 with tabs[3]:
     st.header("Outreach Architect")
+    # Pre-populated from detected_company
     out_comp = st.text_input("Target Company:", value=st.session_state['detected_company'], key="outreach_comp")
     
     if st.button("Identify Potential Managers"):
         if out_comp:
-            with st.spinner(f"Identifying decision makers at {out_comp}..."):
-                res = client.models.generate_content(model=selected_model, contents=f"Identify 2 hiring managers at {out_comp} by NAME | TITLE. DO NOT include citations.")
+            with st.spinner(f"Identifying role-relevant managers at {out_comp}..."):
+                # REFINED PROMPT: Incorporates JD to find department-specific managers
+                research_prompt = f"""
+                Identify 2 specific hiring managers at {out_comp} who would likely be the direct supervisor or department head for the role described here:
+                JD: {st.session_state['last_jd_analyzed']}
+                
+                Search for titles like Engineering Manager, Director of [Department], or VP of [Department] as appropriate for the JD.
+                Return ONLY in this format: NAME | TITLE
+                DO NOT include citations or extra text.
+                """
+                res = client.models.generate_content(model=selected_model, contents=research_prompt)
                 st.session_state['potential_managers'] = [m.strip() for m in res.text.split('\n') if "|" in m]
     
     sel = st.selectbox("Select Target Manager:", options=st.session_state['potential_managers'] if st.session_state['potential_managers'] else ["(Perform research first)"])
